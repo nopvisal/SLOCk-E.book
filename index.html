@@ -33,7 +33,7 @@
       overflow: hidden;
     }
 
-    /* ========== PROFESSIONAL NAVBAR ========== */
+    /* Professional Navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -114,39 +114,16 @@
       background: #1e293b;
     }
 
-    /* Specific button icons (unicode) */
-    .control-btn#prevBtn, .control-btn#nextBtn {
-      font-size: 1.2rem;
-      padding: 0 16px;
-    }
-    .control-btn#zoomOutBtn, .control-btn#zoomInBtn {
-      font-weight: 600;
-    }
-
-    /* Mobile adjustments */
     @media (max-width: 680px) {
       .topbar {
         padding: 10px 16px;
         gap: 10px;
         min-height: 60px;
       }
-      .left-tools, .right-tools {
-        gap: 8px;
-      }
-      .brand {
-        font-size: 1rem;
-      }
-      .control-btn {
-        height: 36px;
-        min-width: 36px;
-        padding: 0 12px;
-        font-size: 0.75rem;
-      }
-      .page-indicator {
-        padding: 4px 10px;
-        font-size: 0.75rem;
-        min-width: 70px;
-      }
+      .left-tools, .right-tools { gap: 8px; }
+      .brand { font-size: 1rem; }
+      .control-btn { height: 36px; min-width: 36px; padding: 0 12px; font-size: 0.75rem; }
+      .page-indicator { padding: 4px 10px; font-size: 0.75rem; min-width: 70px; }
     }
 
     /* Book area */
@@ -205,6 +182,67 @@
       z-index: 20;
       letter-spacing: 0.3px;
     }
+
+    /* ========== TORX LOADING SPINNER ========== */
+    .torx-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0f172a, #020617);
+      z-index: 100000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+      transition: opacity 0.4s ease;
+    }
+    .torx {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      animation: spin 1.2s linear infinite;
+    }
+    .torx svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
+    }
+    .torx .path {
+      stroke: #38bdf8;
+      stroke-width: 3;
+      stroke-linecap: round;
+      fill: none;
+      stroke-dasharray: 240;
+      stroke-dashoffset: 0;
+      animation: dash 1.5s ease-in-out infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes dash {
+      0% { stroke-dashoffset: 240; }
+      50% { stroke-dashoffset: 80; }
+      100% { stroke-dashoffset: 240; }
+    }
+    .loader-text {
+      position: absolute;
+      bottom: 30%;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      margin-top: 100px;
+    }
+    @media (max-width: 768px) {
+      .torx { width: 60px; height: 60px; }
+      .loader-text { font-size: 0.75rem; bottom: 25%; }
+    }
   </style>
 </head>
 <body>
@@ -226,8 +264,20 @@
     <div class="zoom-container" id="zoomContainer">
       <div id="flipbook"></div>
     </div>
-    <div class="zoom-hint">Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
+    <div class="zoom-hint">✌️ Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
   </div>
+</div>
+
+<!-- Torx Loading Overlay -->
+<div id="torxLoader" class="torx-loader">
+  <div class="torx">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <path class="path" d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71" stroke="currentColor" stroke-width="2" fill="none"/>
+      <circle cx="50" cy="50" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path class="path" d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71" stroke="#38bdf8" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+  <div class="loader-text">LOADING CATALOG</div>
 </div>
 
 <audio id="flipSound" preload="auto" crossorigin="anonymous">
@@ -244,8 +294,19 @@
     const $flipbook = $("#flipbook");
     const bookArea = document.getElementById("bookArea");
     const zoomContainer = document.getElementById("zoomContainer");
+    const torxLoader = document.getElementById("torxLoader");
     let loadedPages = 0;
     let bookReady = false;
+
+    // ------------------------------- HIDE LOADER WHEN READY -----------------
+    function hideLoader() {
+      if (torxLoader) {
+        torxLoader.style.opacity = "0";
+        setTimeout(() => {
+          torxLoader.style.display = "none";
+        }, 400);
+      }
+    }
 
     // ------------------------------- AUDIO ----------------------------------
     const flipSound = document.getElementById("flipSound");
@@ -280,12 +341,18 @@
       $img.attr("crossorigin", "anonymous");
       $img.on("load", () => {
         loadedPages++;
-        if (loadedPages === TOTAL_PAGES) initFlipbook();
+        if (loadedPages === TOTAL_PAGES) {
+          initFlipbook();
+          hideLoader();
+        }
       });
       $img.on("error", () => {
         $page.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white; background:#111827; font-size:20px;">⚠️ Missing ${i}</div>`);
         loadedPages++;
-        if (loadedPages === TOTAL_PAGES) initFlipbook();
+        if (loadedPages === TOTAL_PAGES) {
+          initFlipbook();
+          hideLoader();
+        }
       });
       $page.append($img);
       $flipbook.append($page);
@@ -341,7 +408,7 @@
       });
     }
 
-    // ------------------------------- PINCH ZOOM + PAN + SWIPE + DOUBLE-TAP RESET (FIXED)----
+    // ------------------------------- PINCH ZOOM + PAN + SWIPE + DOUBLE-TAP RESET ----
     let currentZoom = 1;
     let currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
@@ -351,12 +418,10 @@
     let lastTouchX = 0, lastTouchY = 0;
     let lastPanX = 0, lastPanY = 0;
     
-    // Double-tap detection (independent and reliable)
     let lastTapTime = 0;
     let lastTapX = 0, lastTapY = 0;
     let tapTimeout = null;
     
-    // Swipe detection (when zoom=1)
     let swipeStartX = 0, swipeActive = false;
 
     function applyTransform() {
@@ -387,20 +452,17 @@
       return Math.hypot(dx, dy);
     }
 
-    // Main touch handler (all gestures)
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
       
-      // Double-tap detection: record first tap
+      // Double-tap detection (reliable torx-style)
       if (touches.length === 1 && !isPinching && !isPanning) {
         const now = Date.now();
         const tx = touches[0].clientX;
         const ty = touches[0].clientY;
         if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-          // Double-tap detected!
           resetZoomAndPan();
           e.preventDefault();
-          // Clear the timeout to avoid second reset
           if (tapTimeout) clearTimeout(tapTimeout);
           lastTapTime = 0;
           return;
@@ -408,13 +470,11 @@
           lastTapTime = now;
           lastTapX = tx;
           lastTapY = ty;
-          // Set a timeout to reset tap after 300ms so next tap can be new
           if (tapTimeout) clearTimeout(tapTimeout);
           tapTimeout = setTimeout(() => { lastTapTime = 0; }, 300);
         }
       }
       
-      // Pinch start
       if (touches.length === 2) {
         isPinching = true;
         pinchStartDistance = getDistance(touches);
@@ -423,7 +483,6 @@
         initialPanY = currentPanY;
         e.preventDefault();
       } 
-      // Pan or swipe start
       else if (touches.length === 1) {
         if (currentZoom > 1.02) {
           isPanning = true;
@@ -433,7 +492,6 @@
           lastPanY = currentPanY;
           e.preventDefault();
         } else {
-          // Start swipe detection (only when zoom=1)
           swipeStartX = touches[0].clientX;
           swipeActive = true;
         }
@@ -462,7 +520,6 @@
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           currentPanX = lastPanX + dx;
           currentPanY = lastPanY + dy;
-          // Boundary clamp
           const containerRect = bookArea.getBoundingClientRect();
           const flipEl = document.getElementById("flipbook");
           const flipRect = flipEl.getBoundingClientRect();
@@ -485,7 +542,6 @@
     });
 
     bookArea.addEventListener("touchend", (e) => {
-      // Swipe to flip (only when zoom=1 and not pinching/panning)
       if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning) {
         const changed = e.changedTouches[0];
         if (changed && swipeStartX !== 0) {
@@ -496,7 +552,6 @@
           }
         }
       }
-      // Reset gesture flags
       isPinching = false;
       isPanning = false;
       swipeActive = false;
@@ -507,19 +562,13 @@
     document.getElementById("zoomInBtn").addEventListener("click", () => {
       if (!bookReady) return;
       currentZoom = Math.min(4.0, currentZoom + 0.2);
-      if (currentZoom <= 1.02) {
-        currentPanX = 0;
-        currentPanY = 0;
-      }
+      if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
       applyTransform();
     });
     document.getElementById("zoomOutBtn").addEventListener("click", () => {
       if (!bookReady) return;
       currentZoom = Math.max(1.0, currentZoom - 0.2);
-      if (currentZoom <= 1.02) {
-        currentPanX = 0;
-        currentPanY = 0;
-      }
+      if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
       applyTransform();
     });
 
@@ -586,10 +635,13 @@
       if (e.key === "ArrowRight") $flipbook.turn("next");
     });
 
-    // ------------------------------- FALLBACK ------------------------------
+    // Fallback: hide loader after max 8 seconds
     setTimeout(() => {
-      if (!bookReady && loadedPages < TOTAL_PAGES) initFlipbook();
-    }, 5000);
+      if (torxLoader && torxLoader.style.display !== "none") {
+        hideLoader();
+        if (!bookReady) initFlipbook();
+      }
+    }, 8000);
   })();
 </script>
 </body>
