@@ -90,6 +90,7 @@
       position: relative;
       overflow: hidden;
       background: #020617;
+      touch-action: none; /* we handle all touch gestures */
     }
 
     .zoom-container {
@@ -105,6 +106,9 @@
 
     #flipbook {
       box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+      transition: box-shadow 0.2s;
+      /* turn.js will receive clicks/taps only when zoom=1 */
+      pointer-events: auto;
     }
 
     .page {
@@ -122,19 +126,6 @@
       display: block;
       pointer-events: none;
       background: #111827;
-    }
-
-    /* Overlay that captures touch events when zoomed > 1 */
-    .zoom-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 100;
-      background: transparent;
-      touch-action: none;
-      display: none;
     }
 
     @media (max-width: 768px) {
@@ -179,8 +170,7 @@
     <div class="zoom-container" id="zoomContainer">
       <div id="flipbook"></div>
     </div>
-    <div class="zoom-overlay" id="zoomOverlay"></div>
-    <div class="zoom-hint"> Pinch to zoom · Drag to pan · Double‑tap reset · Swipe </div>
+    <div class="zoom-hint"> Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
   </div>
 </div>
 
@@ -198,7 +188,6 @@
     const $flipbook = $("#flipbook");
     const bookArea = document.getElementById("bookArea");
     const zoomContainer = document.getElementById("zoomContainer");
-    const zoomOverlay = document.getElementById("zoomOverlay");
     let loadedPages = 0;
     let bookReady = false;
     let currentPage = 1;
@@ -300,7 +289,7 @@
       });
     }
 
-    // ======================== PINCH ZOOM & PAN (FIXED) ========================
+    // ======================== PINCH ZOOM & PAN (FIXED - NO OVERLAY) ========================
     let currentZoom = 1;
     let currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
@@ -310,14 +299,15 @@
     let lastTouchX = 0, lastTouchY = 0;
     let lastPanX = 0, lastPanY = 0;
     let lastTapTime = 0;
+    let swipeStartX = 0, swipeActive = false;
 
     function applyTransform() {
       zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
-      // Show overlay when zoomed > 1 to block turn.js touches
+      // When zoomed > 1, disable pointer events on flipbook so turn.js doesn't interfere
       if (currentZoom > 1.02) {
-        zoomOverlay.style.display = "block";
+        $flipbook.css("pointer-events", "none");
       } else {
-        zoomOverlay.style.display = "none";
+        $flipbook.css("pointer-events", "auto");
         if (currentPanX !== 0 || currentPanY !== 0) {
           currentPanX = 0;
           currentPanY = 0;
@@ -340,27 +330,35 @@
       return Math.hypot(dx, dy);
     }
 
-    // Touch handling on the overlay (only active when zoomed)
-    zoomOverlay.addEventListener("touchstart", (e) => {
-      e.preventDefault();
+    // Main touch handler on bookArea (handles all gestures)
+    bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
       if (touches.length === 2) {
+        // Pinch start
         isPinching = true;
         pinchStartDistance = getDistance(touches);
         initialZoom = currentZoom;
         initialPanX = currentPanX;
         initialPanY = currentPanY;
+        e.preventDefault();
       } else if (touches.length === 1) {
-        isPanning = true;
-        lastTouchX = touches[0].clientX;
-        lastTouchY = touches[0].clientY;
-        lastPanX = currentPanX;
-        lastPanY = currentPanY;
+        if (currentZoom > 1.02) {
+          // Pan mode
+          isPanning = true;
+          lastTouchX = touches[0].clientX;
+          lastTouchY = touches[0].clientY;
+          lastPanX = currentPanX;
+          lastPanY = currentPanY;
+          e.preventDefault();
+        } else {
+          // Swipe detection for page flip (only when zoom=1)
+          swipeStartX = touches[0].clientX;
+          swipeActive = true;
+        }
       }
     });
 
-    zoomOverlay.addEventListener("touchmove", (e) => {
-      e.preventDefault();
+    bookArea.addEventListener("touchmove", (e) => {
       const touches = e.touches;
       if (isPinching && touches.length === 2) {
         const newDist = getDistance(touches);
@@ -376,6 +374,7 @@
             applyTransform();
           }
         }
+        e.preventDefault();
       } else if (isPanning && touches.length === 1) {
         const dx = touches[0].clientX - lastTouchX;
         const dy = touches[0].clientY - lastTouchY;
@@ -394,17 +393,40 @@
           currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
           applyTransform();
         }
+        e.preventDefault();
+      } else if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
+        const deltaX = touches[0].clientX - swipeStartX;
+        const deltaY = touches[0].clientY - swipeStartY;
+        if (Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
+          e.preventDefault();
+        }
       }
     });
 
-    zoomOverlay.addEventListener("touchend", (e) => {
+    bookArea.addEventListener("touchend", (e) => {
       const now = Date.now();
-      if (now - lastTapTime < 250) {
+      // Double-tap reset
+      if (now - lastTapTime < 250 && !isPinching && !isPanning) {
         resetZoomAndPan();
       }
       lastTapTime = now;
+
+      // Swipe to flip (only when zoom=1 and swipe was active)
+      if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning) {
+        const changed = e.changedTouches[0];
+        if (changed && swipeStartX !== 0) {
+          const deltaX = changed.clientX - swipeStartX;
+          if (Math.abs(deltaX) > 50) {
+            if (deltaX > 0) $flipbook.turn("previous");
+            else $flipbook.turn("next");
+          }
+        }
+      }
+
       isPinching = false;
       isPanning = false;
+      swipeActive = false;
+      pinchStartDistance = 0;
     });
 
     // ======================== BUTTON ZOOM ========================
@@ -425,47 +447,6 @@
         currentPanY = 0;
       }
       applyTransform();
-    });
-
-    // ======================== SWIPE TO FLIP (when zoom = 1) ========================
-    let swipeStartX = 0, swipeStartY = 0;
-    let swipeActive = false;
-    bookArea.addEventListener("touchstart", (e) => {
-      if (currentZoom > 1.02) return;
-      if (e.target === zoomOverlay) return;
-      const touches = e.touches;
-      if (touches.length === 1) {
-        swipeStartX = touches[0].clientX;
-        swipeStartY = touches[0].clientY;
-        swipeActive = true;
-      }
-    });
-    bookArea.addEventListener("touchmove", (e) => {
-      if (!swipeActive || currentZoom > 1.02) return;
-      const touches = e.touches;
-      if (touches.length === 1) {
-        const deltaX = touches[0].clientX - swipeStartX;
-        const deltaY = touches[0].clientY - swipeStartY;
-        if (Math.abs(deltaX) > 20 && Math.abs(deltaX) > Math.abs(deltaY)) {
-          e.preventDefault();
-        }
-      }
-    });
-    bookArea.addEventListener("touchend", (e) => {
-      if (!swipeActive || currentZoom > 1.02) {
-        swipeActive = false;
-        return;
-      }
-      const changed = e.changedTouches[0];
-      if (changed && swipeStartX !== 0) {
-        const deltaX = changed.clientX - swipeStartX;
-        if (Math.abs(deltaX) > 50) {
-          if (deltaX > 0) $flipbook.turn("previous");
-          else $flipbook.turn("next");
-        }
-      }
-      swipeActive = false;
-      swipeStartX = 0;
     });
 
     // ======================== BUTTON FLIPPING ========================
