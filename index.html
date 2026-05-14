@@ -17,13 +17,24 @@
 
 <title>SLOCK Catalog</title>
 
+<!-- JQUERY -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- TURN JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+
+<!-- PANZOOM -->
+<script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom/dist/panzoom.min.js"></script>
+
+<!-- JSPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link
+href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+rel="stylesheet"
+/>
 
 <style>
 
@@ -48,14 +59,14 @@ body{
 
     background:#020617;
 
-    position:fixed;
-
-    touch-action:none;
+    font-family:'Inter',sans-serif;
 }
 
-body{
+/* =========================================
+   BODY
+========================================= */
 
-    font-family:'Inter',sans-serif;
+body{
 
     background:
     radial-gradient(circle at top,
@@ -63,29 +74,9 @@ body{
     #0f172a 45%,
     #020617 100%);
 
-    padding-top:max(env(safe-area-inset-top), 12px);
-
-    padding-bottom:max(env(safe-area-inset-bottom), 12px);
-
-    padding-left:max(env(safe-area-inset-left), 0px);
-
-    padding-right:max(env(safe-area-inset-right), 0px);
-}
-
-/* =========================================
-   APP
-========================================= */
-
-.app{
-
-    width:100%;
-    height:100%;
-
     display:flex;
 
     flex-direction:column;
-
-    overflow:hidden;
 }
 
 /* =========================================
@@ -98,15 +89,11 @@ body{
 
     min-height:64px;
 
-    flex-shrink:0;
-
     display:flex;
 
     justify-content:space-between;
 
     align-items:center;
-
-    gap:12px;
 
     padding:12px 18px;
 
@@ -117,12 +104,18 @@ body{
     border-bottom:
     1px solid rgba(255,255,255,.08);
 
-    z-index:99999;
-
-    position:relative;
+    z-index:9999;
 }
 
-.left-tools,
+.brand{
+
+    color:white;
+
+    font-size:18px;
+
+    font-weight:600;
+}
+
 .right-tools{
 
     display:flex;
@@ -132,36 +125,6 @@ body{
     gap:10px;
 
     flex-wrap:wrap;
-}
-
-/* =========================================
-   BRAND
-========================================= */
-
-.brand{
-
-    color:white;
-
-    font-size:18px;
-
-    font-weight:600;
-
-    letter-spacing:.3px;
-}
-
-/* =========================================
-   PAGE COUNTER
-========================================= */
-
-.page-indicator{
-
-    color:#cbd5e1;
-
-    font-size:14px;
-
-    min-width:70px;
-
-    text-align:center;
 }
 
 /* =========================================
@@ -186,16 +149,6 @@ body{
 
     color:white;
 
-    display:flex;
-
-    align-items:center;
-
-    justify-content:center;
-
-    font-size:13px;
-
-    font-weight:500;
-
     cursor:pointer;
 
     transition:.2s ease;
@@ -212,6 +165,21 @@ body{
 }
 
 /* =========================================
+   COUNTER
+========================================= */
+
+.page-indicator{
+
+    color:#cbd5e1;
+
+    font-size:14px;
+
+    min-width:70px;
+
+    text-align:center;
+}
+
+/* =========================================
    BOOK AREA
 ========================================= */
 
@@ -219,21 +187,17 @@ body{
 
     flex:1;
 
-    width:100%;
-
-    min-height:0;
-
-    overflow:hidden;
-
     display:flex;
 
     justify-content:center;
 
     align-items:center;
 
-    padding:4px;
+    overflow:hidden;
 
     position:relative;
+
+    padding:10px;
 }
 
 /* =========================================
@@ -244,8 +208,6 @@ body{
 
     box-shadow:
     0 25px 70px rgba(0,0,0,.55);
-
-    touch-action:none;
 }
 
 /* =========================================
@@ -259,15 +221,13 @@ body{
     overflow:hidden;
 
     position:relative;
-
-    touch-action:none;
 }
 
 /* =========================================
-   ZOOM CONTAINER
+   ZOOM WRAPPER
 ========================================= */
 
-.zoom-container{
+.zoom-wrapper{
 
     width:100%;
     height:100%;
@@ -277,37 +237,31 @@ body{
     position:relative;
 
     touch-action:none;
+
+    background:#111827;
 }
 
 /* =========================================
-   ZOOM CONTENT
+   PANZOOM TARGET
 ========================================= */
 
-.zoom-content{
+.panzoom-target{
 
     width:100%;
     height:100%;
 
-    position:absolute;
-
-    top:0;
-    left:0;
-
-    transform-origin:center center;
-
     display:flex;
 
     justify-content:center;
-    align-items:center;
 
-    will-change:transform;
+    align-items:center;
 }
 
 /* =========================================
    IMAGE
 ========================================= */
 
-.zoom-content img{
+.panzoom-target img{
 
     width:100%;
     height:100%;
@@ -316,11 +270,9 @@ body{
 
     user-select:none;
 
-    pointer-events:none;
-
     -webkit-user-drag:none;
 
-    background:#111827;
+    pointer-events:none;
 }
 
 /* =========================================
@@ -330,8 +282,6 @@ body{
 @media(max-width:768px){
 
     .topbar{
-
-        min-height:58px;
 
         padding:10px;
     }
@@ -348,15 +298,6 @@ body{
         min-width:34px;
 
         font-size:11px;
-
-        padding:0 10px;
-    }
-
-    .page-indicator{
-
-        font-size:12px;
-
-        min-width:50px;
     }
 }
 
@@ -365,49 +306,51 @@ body{
 
 <body>
 
-<div class="app">
+<!-- =====================================
+     TOPBAR
+===================================== -->
 
-    <!-- TOPBAR -->
+<div class="topbar">
 
-    <div class="topbar">
-
-        <div class="left-tools">
-
-            <div class="brand">
-                SLOCK Catalog
-            </div>
-
-        </div>
-
-        <div class="right-tools">
-
-            <button class="control-btn" id="prevBtn">
-                ◀
-            </button>
-
-            <div class="page-indicator" id="pageCounter">
-                1 / 1
-            </div>
-
-            <button class="control-btn" id="nextBtn">
-                ▶
-            </button>
-
-        </div>
-
+    <div class="brand">
+        SLOCK Catalog
     </div>
 
-    <!-- BOOK -->
+    <div class="right-tools">
 
-    <div class="book-area">
+        <button class="control-btn" id="prevBtn">
+            ◀
+        </button>
 
-        <div id="flipbook"></div>
+        <div class="page-indicator" id="pageCounter">
+            1 / 1
+        </div>
+
+        <button class="control-btn" id="nextBtn">
+            ▶
+        </button>
+
+        <button class="control-btn" id="downloadPDF">
+            PDF
+        </button>
 
     </div>
 
 </div>
 
-<!-- SOUND -->
+<!-- =====================================
+     BOOK AREA
+===================================== -->
+
+<div class="book-area">
+
+    <div id="flipbook"></div>
+
+</div>
+
+<!-- =====================================
+     SOUND
+===================================== -->
 
 <audio id="flipSound" preload="auto">
     <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
@@ -425,9 +368,8 @@ const IMAGE_FOLDER = "images/";
 
 const IMAGE_EXT = "jpg";
 
-// ========================================
-
-const flipbook = $("#flipbook");
+const flipbook =
+    $("#flipbook");
 
 let loadedPages = 0;
 
@@ -440,11 +382,11 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
     const page =
         $("<div class='page'></div>");
 
-    const zoomContainer =
-        $("<div class='zoom-container'></div>");
+    const wrapper =
+        $("<div class='zoom-wrapper'></div>");
 
-    const zoomContent =
-        $("<div class='zoom-content'></div>");
+    const target =
+        $("<div class='panzoom-target'></div>");
 
     const img =
         $("<img>");
@@ -454,11 +396,18 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
         `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`
     );
 
+    img.attr(
+        "draggable",
+        "false"
+    );
+
     img.on("load",()=>{
 
         loadedPages++;
 
-        if(loadedPages === TOTAL_PAGES){
+        if(
+            loadedPages === TOTAL_PAGES
+        ){
 
             initBook();
         }
@@ -466,14 +415,14 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
 
     img.on("error",()=>{
 
-        zoomContent.html(`
+        target.html(`
             <div style="
-                width:100%;
-                height:100%;
+                color:white;
                 display:flex;
                 justify-content:center;
                 align-items:center;
-                color:white;
+                width:100%;
+                height:100%;
                 font-size:22px;
             ">
                 Missing Page ${i}
@@ -482,23 +431,25 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
 
         loadedPages++;
 
-        if(loadedPages === TOTAL_PAGES){
+        if(
+            loadedPages === TOTAL_PAGES
+        ){
 
             initBook();
         }
     });
 
-    zoomContent.append(img);
+    target.append(img);
 
-    zoomContainer.append(zoomContent);
+    wrapper.append(target);
 
-    page.append(zoomContainer);
+    page.append(wrapper);
 
     flipbook.append(page);
 }
 
 // ========================================
-// RESPONSIVE SIZE
+// BOOK SIZE
 // ========================================
 
 function getBookSize(){
@@ -530,9 +481,9 @@ function getBookSize(){
         width = height * ratio;
     }
 
-    width *= 0.995;
+    width *= 0.98;
 
-    height *= 0.995;
+    height *= 0.98;
 
     return{
 
@@ -585,11 +536,11 @@ function initBook(){
 
     updateCounter(1);
 
-    enablePinchZoom();
+    enablePanZoom();
 }
 
 // ========================================
-// COUNTER
+// PAGE COUNTER
 // ========================================
 
 function updateCounter(page){
@@ -601,7 +552,7 @@ function updateCounter(page){
 }
 
 // ========================================
-// SOUND
+// FLIP SOUND
 // ========================================
 
 function playFlipSound(){
@@ -650,192 +601,223 @@ $(document).keydown(function(e){
 });
 
 // ========================================
-// PINCH ZOOM
+// PANZOOM
 // ========================================
 
-function enablePinchZoom(){
+function enablePanZoom(){
 
-    const containers =
-        document.querySelectorAll(".zoom-container");
+    const wrappers =
+        document.querySelectorAll(
+            ".zoom-wrapper"
+        );
 
-    containers.forEach(container=>{
+    wrappers.forEach(wrapper=>{
 
-        const content =
-            container.querySelector(".zoom-content");
-
-        let scale = 1;
-
-        let startScale = 1;
-
-        let pointX = 0;
-        let pointY = 0;
-
-        let startX = 0;
-        let startY = 0;
-
-        let initialDistance = 0;
-
-        let isDragging = false;
-
-        // --------------------------------
-        // UPDATE
-        // --------------------------------
-
-        function updateTransform(){
-
-            content.style.transform =
-            `
-            translate(${pointX}px, ${pointY}px)
-            scale(${scale})
-            `;
-        }
-
-        // --------------------------------
-        // DISTANCE
-        // --------------------------------
-
-        function getDistance(touches){
-
-            return Math.hypot(
-
-                touches[0].clientX -
-                touches[1].clientX,
-
-                touches[0].clientY -
-                touches[1].clientY
+        const target =
+            wrapper.querySelector(
+                ".panzoom-target"
             );
-        }
+
+        const panzoom =
+            Panzoom(target,{
+
+                maxScale:5,
+
+                minScale:1,
+
+                contain:"outside",
+
+                cursor:"grab",
+
+                pinchAndPan:true
+            });
 
         // --------------------------------
-        // TOUCH START
+        // TOUCH PINCH ZOOM
         // --------------------------------
 
-        container.addEventListener(
-
+        wrapper.addEventListener(
             "touchstart",
-
-            (e)=>{
-
-                // PINCH
-
-                if(e.touches.length === 2){
-
-                    initialDistance =
-                        getDistance(e.touches);
-
-                    startScale =
-                        scale;
-                }
-
-                // DRAG
-
-                if(
-                    e.touches.length === 1 &&
-                    scale > 1
-                ){
-
-                    isDragging = true;
-
-                    startX =
-                    e.touches[0].clientX -
-                    pointX;
-
-                    startY =
-                    e.touches[0].clientY -
-                    pointY;
-                }
-
-            },
-
+            panzoom.handleTouch,
             { passive:false }
         );
 
         // --------------------------------
-        // TOUCH MOVE
+        // MOUSE WHEEL ZOOM
         // --------------------------------
 
-        container.addEventListener(
-
-            "touchmove",
-
-            (e)=>{
-
-                // PINCH ZOOM
-
-                if(e.touches.length === 2){
-
-                    e.preventDefault();
-
-                    const currentDistance =
-                        getDistance(e.touches);
-
-                    scale =
-                        startScale *
-                        (
-                            currentDistance /
-                            initialDistance
-                        );
-
-                    scale =
-                        Math.max(
-                            1,
-                            Math.min(scale,5)
-                        );
-
-                    updateTransform();
-                }
-
-                // DRAG
-
-                if(
-                    e.touches.length === 1 &&
-                    isDragging &&
-                    scale > 1
-                ){
-
-                    e.preventDefault();
-
-                    pointX =
-                    e.touches[0].clientX -
-                    startX;
-
-                    pointY =
-                    e.touches[0].clientY -
-                    startY;
-
-                    updateTransform();
-                }
-
-            },
-
-            { passive:false }
+        wrapper.addEventListener(
+            "wheel",
+            panzoom.zoomWithWheel
         );
 
         // --------------------------------
-        // TOUCH END
+        // DOUBLE CLICK ZOOM
         // --------------------------------
 
-        container.addEventListener(
+        wrapper.addEventListener(
+            "dblclick",
+            function(e){
 
-            "touchend",
+                e.preventDefault();
 
-            ()=>{
-
-                isDragging = false;
-
-                if(scale <= 1){
-
-                    scale = 1;
-
-                    pointX = 0;
-                    pointY = 0;
-
-                    updateTransform();
-                }
+                panzoom.zoomIn();
             }
         );
     });
 }
+
+// ========================================
+// PDF DOWNLOAD
+// ========================================
+
+$("#downloadPDF").click(async function(){
+
+    const btn = this;
+
+    const originalText =
+        btn.innerHTML;
+
+    btn.disabled = true;
+
+    btn.innerHTML = "Preparing...";
+
+    try{
+
+        const { jsPDF } =
+            window.jspdf;
+
+        const pdf = new jsPDF({
+
+            orientation:"portrait",
+
+            unit:"mm",
+
+            format:"a4",
+
+            compress:true
+        });
+
+        const pdfWidth =
+            pdf.internal.pageSize.getWidth();
+
+        const pdfHeight =
+            pdf.internal.pageSize.getHeight();
+
+        async function loadImage(pageNumber){
+
+            return new Promise((resolve,reject)=>{
+
+                const img = new Image();
+
+                img.crossOrigin = "anonymous";
+
+                img.onload =
+                    ()=> resolve(img);
+
+                img.onerror =
+                    ()=> reject(
+                        new Error(
+                            `Missing Page ${pageNumber}`
+                        )
+                    );
+
+                img.src =
+                `${IMAGE_FOLDER}page${pageNumber}.${IMAGE_EXT}`;
+            });
+        }
+
+        for(let i = 1; i <= TOTAL_PAGES; i++){
+
+            btn.innerHTML =
+            `${i}/${TOTAL_PAGES}`;
+
+            const img =
+                await loadImage(i);
+
+            const canvas =
+                document.createElement("canvas");
+
+            const ctx =
+                canvas.getContext("2d");
+
+            canvas.width =
+                img.naturalWidth;
+
+            canvas.height =
+                img.naturalHeight;
+
+            ctx.fillStyle = "#ffffff";
+
+            ctx.fillRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            ctx.drawImage(
+                img,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            const imgData =
+                canvas.toDataURL(
+                    "image/jpeg",
+                    0.95
+                );
+
+            if(i > 1){
+
+                pdf.addPage();
+            }
+
+            pdf.addImage(
+
+                imgData,
+
+                "JPEG",
+
+                0,
+
+                0,
+
+                pdfWidth,
+
+                pdfHeight
+            );
+        }
+
+        btn.innerHTML = "Saving...";
+
+        pdf.save("SLOCK-Catalog.pdf");
+
+        btn.innerHTML = "Done ✓";
+
+        setTimeout(()=>{
+
+            btn.innerHTML =
+                originalText;
+
+        },1500);
+
+    }catch(err){
+
+        console.error(err);
+
+        alert(err.message);
+
+        btn.innerHTML =
+            originalText;
+
+    }finally{
+
+        btn.disabled = false;
+    }
+});
 
 // ========================================
 // RESIZE FIX
