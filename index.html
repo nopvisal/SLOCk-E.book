@@ -7,7 +7,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -33,64 +33,129 @@
       overflow: hidden;
     }
 
+    /* ========== PROFESSIONAL NAVBAR ========== */
     .topbar {
       width: 100%;
-      min-height: 64px;
+      min-height: 70px;
       flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      padding: 12px 18px;
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(18px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      gap: 16px;
+      padding: 12px 24px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 99999;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
 
     .left-tools, .right-tools {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
     .brand {
       color: white;
-      font-size: 18px;
+      font-size: 1.25rem;
       font-weight: 600;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
 
     .page-indicator {
-      color: #cbd5e1;
-      font-size: 14px;
-      min-width: 70px;
-      text-align: center;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(4px);
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-size: 0.85rem;
       font-weight: 500;
+      color: #e2e8f0;
+      letter-spacing: 0.3px;
+      min-width: 85px;
+      text-align: center;
     }
 
     .control-btn {
       border: none;
-      height: 40px;
-      min-width: 40px;
-      padding: 0 14px;
-      border-radius: 12px;
-      background: #1e293b;
-      color: white;
-      font-size: 13px;
+      outline: none;
+      height: 42px;
+      min-width: 42px;
+      padding: 0 18px;
+      border-radius: 30px;
+      background: rgba(30, 41, 59, 0.9);
+      backdrop-filter: blur(4px);
+      color: #f1f5f9;
+      font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
-      transition: 0.2s;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      letter-spacing: 0.2px;
     }
-    .control-btn:active { transform: scale(0.96); }
 
+    .control-btn:hover {
+      background: #334155;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+    }
+    .control-btn:active {
+      transform: scale(0.96);
+      background: #1e293b;
+    }
+
+    /* Specific button icons (unicode) */
+    .control-btn#prevBtn, .control-btn#nextBtn {
+      font-size: 1.2rem;
+      padding: 0 16px;
+    }
+    .control-btn#zoomOutBtn, .control-btn#zoomInBtn {
+      font-weight: 600;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 680px) {
+      .topbar {
+        padding: 10px 16px;
+        gap: 10px;
+        min-height: 60px;
+      }
+      .left-tools, .right-tools {
+        gap: 8px;
+      }
+      .brand {
+        font-size: 1rem;
+      }
+      .control-btn {
+        height: 36px;
+        min-width: 36px;
+        padding: 0 12px;
+        font-size: 0.75rem;
+      }
+      .page-indicator {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        min-width: 70px;
+      }
+    }
+
+    /* Book area */
     .book-area {
       flex: 1;
       position: relative;
       overflow: hidden;
       background: #020617;
-      touch-action: none; /* complete touch control */
+      touch-action: none;
     }
 
     .zoom-container {
@@ -105,7 +170,7 @@
     }
 
     #flipbook {
-      box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
     }
 
     .page {
@@ -125,26 +190,20 @@
       background: #111827;
     }
 
-    @media (max-width: 768px) {
-      .topbar { min-height: 58px; padding: 10px; }
-      .brand { font-size: 15px; }
-      .control-btn { height: 34px; font-size: 11px; padding: 0 10px; }
-      .page-indicator { font-size: 12px; min-width: 50px; }
-    }
-
     .zoom-hint {
       position: absolute;
-      bottom: 16px;
-      right: 16px;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(8px);
-      padding: 6px 12px;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      padding: 8px 16px;
       border-radius: 40px;
-      font-size: 11px;
-      color: #e2e8f0;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #cbd5e6;
       pointer-events: none;
       z-index: 20;
-      font-weight: 500;
+      letter-spacing: 0.3px;
     }
   </style>
 </head>
@@ -152,15 +211,15 @@
 <div class="app">
   <div class="topbar">
     <div class="left-tools">
-      <div class="brand">SLOCK Catalog</div>
+      <div class="brand">SLOCK</div>
     </div>
     <div class="right-tools">
-      <button class="control-btn" id="prevBtn">◀</button>
+      <button class="control-btn" id="prevBtn" aria-label="Previous page">◀</button>
       <div class="page-indicator" id="pageCounter">1 / 36</div>
-      <button class="control-btn" id="nextBtn">▶</button>
-      <button class="control-btn" id="zoomOutBtn">−</button>
-      <button class="control-btn" id="zoomInBtn">+</button>
-      <button class="control-btn" id="downloadPDF">PDF</button>
+      <button class="control-btn" id="nextBtn" aria-label="Next page">▶</button>
+      <button class="control-btn" id="zoomOutBtn" aria-label="Zoom out">−</button>
+      <button class="control-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
+      <button class="control-btn" id="downloadPDF" aria-label="Download PDF">PDF</button>
     </div>
   </div>
   <div class="book-area" id="bookArea">
@@ -282,7 +341,7 @@
       });
     }
 
-    // ------------------------------- PINCH ZOOM + PAN + SWIPE (ALL DEVICES) ----------------
+    // ------------------------------- PINCH ZOOM + PAN + SWIPE + DOUBLE-TAP RESET (FIXED)----
     let currentZoom = 1;
     let currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
@@ -292,17 +351,16 @@
     let lastTouchX = 0, lastTouchY = 0;
     let lastPanX = 0, lastPanY = 0;
     
-    // Double-tap detection
+    // Double-tap detection (independent and reliable)
     let lastTapTime = 0;
     let lastTapX = 0, lastTapY = 0;
-    let tapCount = 0;
+    let tapTimeout = null;
     
     // Swipe detection (when zoom=1)
     let swipeStartX = 0, swipeActive = false;
 
     function applyTransform() {
       zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
-      // Disable turn.js pointer events when zoomed > 1 to avoid conflicts
       if (currentZoom > 1.02) {
         $flipbook.css("pointer-events", "none");
       } else {
@@ -329,29 +387,45 @@
       return Math.hypot(dx, dy);
     }
 
-    function getMidpoint(touches) {
-      if (touches.length === 0) return { x: 0, y: 0 };
-      if (touches.length === 1) return { x: touches[0].clientX, y: touches[0].clientY };
-      return {
-        x: (touches[0].clientX + touches[1].clientX) / 2,
-        y: (touches[0].clientY + touches[1].clientY) / 2
-      };
-    }
-
-    // Main touch handler
+    // Main touch handler (all gestures)
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
+      
+      // Double-tap detection: record first tap
+      if (touches.length === 1 && !isPinching && !isPanning) {
+        const now = Date.now();
+        const tx = touches[0].clientX;
+        const ty = touches[0].clientY;
+        if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+          // Double-tap detected!
+          resetZoomAndPan();
+          e.preventDefault();
+          // Clear the timeout to avoid second reset
+          if (tapTimeout) clearTimeout(tapTimeout);
+          lastTapTime = 0;
+          return;
+        } else {
+          lastTapTime = now;
+          lastTapX = tx;
+          lastTapY = ty;
+          // Set a timeout to reset tap after 300ms so next tap can be new
+          if (tapTimeout) clearTimeout(tapTimeout);
+          tapTimeout = setTimeout(() => { lastTapTime = 0; }, 300);
+        }
+      }
+      
+      // Pinch start
       if (touches.length === 2) {
-        // Start pinch
         isPinching = true;
         pinchStartDistance = getDistance(touches);
         initialZoom = currentZoom;
         initialPanX = currentPanX;
         initialPanY = currentPanY;
         e.preventDefault();
-      } else if (touches.length === 1) {
+      } 
+      // Pan or swipe start
+      else if (touches.length === 1) {
         if (currentZoom > 1.02) {
-          // Start pan
           isPanning = true;
           lastTouchX = touches[0].clientX;
           lastTouchY = touches[0].clientY;
@@ -359,28 +433,9 @@
           lastPanY = currentPanY;
           e.preventDefault();
         } else {
-          // Potential swipe or double-tap
+          // Start swipe detection (only when zoom=1)
           swipeStartX = touches[0].clientX;
           swipeActive = true;
-          
-          // Double-tap detection
-          const now = Date.now();
-          const tx = touches[0].clientX;
-          const ty = touches[0].clientY;
-          if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 30) {
-            tapCount++;
-            if (tapCount === 2) {
-              resetZoomAndPan();
-              tapCount = 0;
-              lastTapTime = 0;
-              e.preventDefault();
-            }
-          } else {
-            tapCount = 1;
-            lastTapTime = now;
-            lastTapX = tx;
-            lastTapY = ty;
-          }
         }
       }
     });
@@ -395,7 +450,6 @@
           newZoom = Math.min(4.0, Math.max(1.0, newZoom));
           if (newZoom !== currentZoom) {
             currentZoom = newZoom;
-            // Keep pan stable during pinch
             currentPanX = initialPanX;
             currentPanY = initialPanY;
             applyTransform();
@@ -408,7 +462,7 @@
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           currentPanX = lastPanX + dx;
           currentPanY = lastPanY + dy;
-          // Clamp pan to prevent seeing outside the book
+          // Boundary clamp
           const containerRect = bookArea.getBoundingClientRect();
           const flipEl = document.getElementById("flipbook");
           const flipRect = flipEl.getBoundingClientRect();
@@ -431,7 +485,7 @@
     });
 
     bookArea.addEventListener("touchend", (e) => {
-      // Swipe to flip (only when zoom = 1 and not pinch/pan)
+      // Swipe to flip (only when zoom=1 and not pinching/panning)
       if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning) {
         const changed = e.changedTouches[0];
         if (changed && swipeStartX !== 0) {
@@ -442,7 +496,6 @@
           }
         }
       }
-      
       // Reset gesture flags
       isPinching = false;
       isPanning = false;
