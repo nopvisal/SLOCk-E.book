@@ -1,44 +1,24 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 
-<meta charset="UTF-8"/>
-
+<meta charset="UTF-8" />
 <meta
 name="viewport"
-content="
-width=device-width,
-initial-scale=1,
-maximum-scale=1,
-user-scalable=no,
-viewport-fit=cover
-"
+content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 />
 
 <title>SLOCK Catalog</title>
 
-<!-- JQUERY -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-<!-- TURNJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
-
-<!-- PANZOOM -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom/dist/panzoom.min.js"></script>
 
-<!-- JSPDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<link
-href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-rel="stylesheet"
-/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
-
-/* =========================================
-RESET
-========================================= */
 
 *{
     margin:0;
@@ -49,25 +29,15 @@ RESET
 
 html,
 body{
-
     width:100%;
     height:100%;
-
     overflow:hidden;
-
-    background:#020617;
-
     font-family:'Inter',sans-serif;
+    background:#020617;
 }
 
-/* =========================================
-BODY
-========================================= */
-
 body{
-
     display:flex;
-
     flex-direction:column;
 
     background:
@@ -77,23 +47,16 @@ body{
     #020617 100%);
 }
 
-/* =========================================
-TOPBAR
-========================================= */
-
 .topbar{
 
     width:100%;
-
-    min-height:64px;
+    height:64px;
 
     display:flex;
-
     justify-content:space-between;
-
     align-items:center;
 
-    padding:12px 18px;
+    padding:0 18px;
 
     background:rgba(15,23,42,.9);
 
@@ -102,104 +65,72 @@ TOPBAR
     border-bottom:
     1px solid rgba(255,255,255,.08);
 
+    flex-shrink:0;
+
     z-index:9999;
 }
 
 .brand{
-
     color:white;
-
     font-size:18px;
-
     font-weight:600;
 }
 
 .right-tools{
-
     display:flex;
-
     align-items:center;
-
     gap:10px;
-
-    flex-wrap:wrap;
 }
-
-/* =========================================
-BUTTONS
-========================================= */
 
 .control-btn{
 
     border:none;
-
     outline:none;
 
-    background:#1e293b;
-
-    color:white;
-
     height:40px;
-
     min-width:40px;
 
     padding:0 14px;
 
     border-radius:12px;
 
+    background:#1e293b;
+
+    color:white;
+
     cursor:pointer;
 
-    transition:.2s ease;
+    transition:.2s;
 }
 
 .control-btn:hover{
-
     background:#334155;
 }
 
 .page-indicator{
-
     color:#cbd5e1;
-
     min-width:70px;
-
     text-align:center;
 }
-
-/* =========================================
-BOOK AREA
-========================================= */
 
 .book-area{
 
     flex:1;
 
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
     overflow:hidden;
 
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
     position:relative;
-
-    padding:10px;
 }
-
-/* =========================================
-FLIPBOOK
-========================================= */
 
 #flipbook{
 
     box-shadow:
     0 25px 70px rgba(0,0,0,.55);
 }
-
-/* =========================================
-PAGE
-========================================= */
 
 .page{
 
@@ -210,98 +141,63 @@ PAGE
     position:relative;
 }
 
-/* =========================================
-ZOOM WRAPPER
-========================================= */
-
 .zoom-wrapper{
 
     width:100%;
-
     height:100%;
 
     overflow:hidden;
 
     position:relative;
 
-    background:#111827;
-
     touch-action:none;
 }
-
-/* =========================================
-PANZOOM TARGET
-========================================= */
 
 .panzoom-target{
 
     width:100%;
-
     height:100%;
 
     display:flex;
-
     justify-content:center;
-
     align-items:center;
 }
-
-/* =========================================
-IMAGE
-========================================= */
 
 .panzoom-target img{
 
     width:100%;
-
     height:100%;
 
     object-fit:contain;
 
     user-select:none;
 
-    -webkit-user-drag:none;
-
     pointer-events:none;
 
-    display:block;
+    -webkit-user-drag:none;
 }
-
-/* =========================================
-MOBILE
-========================================= */
 
 @media(max-width:768px){
 
     .topbar{
-
-        padding:10px;
+        padding:0 10px;
     }
 
     .brand{
-
         font-size:15px;
     }
 
     .control-btn{
-
         height:34px;
-
         min-width:34px;
-
         font-size:11px;
     }
 }
 
 </style>
-
 </head>
 
 <body>
-
-<!-- =====================================
-TOPBAR
-===================================== -->
 
 <div class="topbar">
 
@@ -311,27 +207,19 @@ TOPBAR
 
     <div class="right-tools">
 
-        <button
-        class="control-btn"
-        id="prevBtn">
+        <button class="control-btn" id="prevBtn">
             ◀
         </button>
 
-        <div
-        class="page-indicator"
-        id="pageCounter">
+        <div class="page-indicator" id="pageCounter">
             1 / 1
         </div>
 
-        <button
-        class="control-btn"
-        id="nextBtn">
+        <button class="control-btn" id="nextBtn">
             ▶
         </button>
 
-        <button
-        class="control-btn"
-        id="downloadPDF">
+        <button class="control-btn" id="downloadPDF">
             PDF
         </button>
 
@@ -339,46 +227,25 @@ TOPBAR
 
 </div>
 
-<!-- =====================================
-BOOK AREA
-===================================== -->
-
 <div class="book-area">
 
     <div id="flipbook"></div>
 
 </div>
 
-<!-- =====================================
-FLIP SOUND
-===================================== -->
-
 <audio id="flipSound" preload="auto">
-    <source
-    src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3"
-    type="audio/mpeg">
+    <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
 </audio>
 
 <script>
 
-// ========================================
-// CONFIG
-// ========================================
-
 const TOTAL_PAGES = 36;
-
 const IMAGE_FOLDER = "images/";
-
 const IMAGE_EXT = "jpg";
 
-const flipbook =
-    $("#flipbook");
+const flipbook = $("#flipbook");
 
 let loadedPages = 0;
-
-// ========================================
-// CREATE PAGES
-// ========================================
 
 for(let i = 1; i <= TOTAL_PAGES; i++){
 
@@ -399,19 +266,11 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
         `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`
     );
 
-    img.attr(
-        "draggable",
-        "false"
-    );
-
     img.on("load",()=>{
 
         loadedPages++;
 
-        if(
-            loadedPages === TOTAL_PAGES
-        ){
-
+        if(loadedPages === TOTAL_PAGES){
             initBook();
         }
     });
@@ -434,10 +293,7 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
 
         loadedPages++;
 
-        if(
-            loadedPages === TOTAL_PAGES
-        ){
-
+        if(loadedPages === TOTAL_PAGES){
             initBook();
         }
     });
@@ -450,10 +306,6 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
 
     flipbook.append(page);
 }
-
-// ========================================
-// BOOK SIZE
-// ========================================
 
 function getBookSize(){
 
@@ -485,25 +337,17 @@ function getBookSize(){
     }
 
     width *= 0.98;
-
     height *= 0.98;
 
     return{
-
         width:Math.floor(width),
-
         height:Math.floor(height)
     };
 }
 
-// ========================================
-// INIT BOOK
-// ========================================
-
 function initBook(){
 
-    const size =
-        getBookSize();
+    const size = getBookSize();
 
     flipbook.turn({
 
@@ -526,12 +370,10 @@ function initBook(){
         when:{
 
             turning:function(){
-
                 playFlipSound();
             },
 
             turned:function(e,page){
-
                 updateCounter(page);
             }
         }
@@ -539,12 +381,8 @@ function initBook(){
 
     updateCounter(1);
 
-    enableZoom();
+    setupZoom();
 }
-
-// ========================================
-// COUNTER
-// ========================================
 
 function updateCounter(page){
 
@@ -554,62 +392,27 @@ function updateCounter(page){
     `${page} / ${TOTAL_PAGES}`;
 }
 
-// ========================================
-// SOUND
-// ========================================
-
 function playFlipSound(){
 
     const sound =
-        document.getElementById(
-            "flipSound"
-        );
+        document.getElementById("flipSound");
 
     sound.pause();
 
     sound.currentTime = 0;
 
-    sound.volume = 1;
-
     sound.play().catch(()=>{});
 }
 
-// ========================================
-// BUTTONS
-// ========================================
-
 $("#prevBtn").click(()=>{
-
     flipbook.turn("previous");
 });
 
 $("#nextBtn").click(()=>{
-
     flipbook.turn("next");
 });
 
-// ========================================
-// KEYBOARD
-// ========================================
-
-$(document).keydown(function(e){
-
-    if(e.key === "ArrowLeft"){
-
-        flipbook.turn("previous");
-    }
-
-    if(e.key === "ArrowRight"){
-
-        flipbook.turn("next");
-    }
-});
-
-// ========================================
-// ENABLE ZOOM
-// ========================================
-
-function enableZoom(){
+function setupZoom(){
 
     const wrappers =
         document.querySelectorAll(
@@ -633,9 +436,33 @@ function enableZoom(){
                 contain:"outside"
             });
 
-        // ================================
-        // PINCH ZOOM
-        // ================================
+        // ============================
+        // IMPORTANT FIX
+        // ============================
+
+        let isZooming = false;
+
+        wrapper.addEventListener(
+
+            "touchstart",
+
+            function(e){
+
+                // 2 fingers = zoom mode
+
+                if(e.touches.length === 2){
+
+                    isZooming = true;
+
+                    flipbook.turn(
+                        "disable",
+                        true
+                    );
+                }
+            },
+
+            { passive:false }
+        );
 
         wrapper.addEventListener(
 
@@ -643,7 +470,7 @@ function enableZoom(){
 
             function(e){
 
-                if(e.touches.length === 2){
+                if(isZooming){
 
                     e.preventDefault();
 
@@ -655,9 +482,29 @@ function enableZoom(){
             { passive:false }
         );
 
-        // ================================
-        // WHEEL ZOOM
-        // ================================
+        wrapper.addEventListener(
+
+            "touchend",
+
+            function(){
+
+                // re-enable swipe
+
+                if(
+                    panzoom.getScale() <= 1
+                ){
+
+                    isZooming = false;
+
+                    flipbook.turn(
+                        "disable",
+                        false
+                    );
+                }
+            }
+        );
+
+        // wheel zoom
 
         wrapper.addEventListener(
 
@@ -671,51 +518,7 @@ function enableZoom(){
             }
         );
 
-        // ================================
-        // DOUBLE TAP / DOUBLE CLICK
-        // ================================
-
-        let lastTap = 0;
-
-        wrapper.addEventListener(
-
-            "touchend",
-
-            function(){
-
-                const now =
-                    new Date().getTime();
-
-                const diff =
-                    now - lastTap;
-
-                if(
-                    diff < 300 &&
-                    diff > 0
-                ){
-
-                    const scale =
-                        panzoom.getScale();
-
-                    if(scale > 1){
-
-                        panzoom.reset();
-
-                    }else{
-
-                        panzoom.zoom(2,{
-                            animate:true
-                        });
-                    }
-                }
-
-                lastTap = now;
-            }
-        );
-
-        // ================================
-        // MOUSE DOUBLE CLICK
-        // ================================
+        // double click zoom
 
         wrapper.addEventListener(
 
@@ -732,20 +535,23 @@ function enableZoom(){
 
                     panzoom.reset();
 
+                    flipbook.turn(
+                        "disable",
+                        false
+                    );
+
+                    isZooming = false;
+
                 }else{
 
-                    panzoom.zoom(2,{
-                        animate:true
-                    });
+                    panzoom.zoom(2,{ animate:true });
                 }
             }
         );
     });
 }
 
-// ========================================
-// PDF DOWNLOAD
-// ========================================
+// PDF
 
 $("#downloadPDF").click(async function(){
 
@@ -756,25 +562,21 @@ $("#downloadPDF").click(async function(){
 
     btn.disabled = true;
 
-    btn.innerHTML =
-        "Preparing...";
+    btn.innerHTML = "Preparing...";
 
     try{
 
         const { jsPDF } =
             window.jspdf;
 
-        const pdf =
-            new jsPDF({
+        const pdf = new jsPDF({
 
-                orientation:"portrait",
+            orientation:"portrait",
 
-                unit:"mm",
+            unit:"mm",
 
-                format:"a4",
-
-                compress:true
-            });
+            format:"a4"
+        });
 
         const pdfWidth =
             pdf.internal.pageSize.getWidth();
@@ -782,46 +584,25 @@ $("#downloadPDF").click(async function(){
         const pdfHeight =
             pdf.internal.pageSize.getHeight();
 
-        async function loadImage(pageNumber){
-
-            return new Promise((resolve,reject)=>{
-
-                const img =
-                    new Image();
-
-                img.crossOrigin =
-                    "anonymous";
-
-                img.onload =
-                    ()=> resolve(img);
-
-                img.onerror =
-                    ()=> reject(
-                        new Error(
-                            `Missing Page ${pageNumber}`
-                        )
-                    );
-
-                img.src =
-                `${IMAGE_FOLDER}page${pageNumber}.${IMAGE_EXT}`;
-            });
-        }
-
         for(let i = 1; i <= TOTAL_PAGES; i++){
 
             btn.innerHTML =
             `${i}/${TOTAL_PAGES}`;
 
             const img =
-                await loadImage(i);
+                new Image();
+
+            img.src =
+            `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`;
+
+            await new Promise(resolve=>{
+                img.onload = resolve;
+            });
 
             const canvas =
                 document.createElement(
                     "canvas"
                 );
-
-            const ctx =
-                canvas.getContext("2d");
 
             canvas.width =
                 img.naturalWidth;
@@ -829,22 +610,13 @@ $("#downloadPDF").click(async function(){
             canvas.height =
                 img.naturalHeight;
 
-            ctx.fillStyle =
-                "#ffffff";
-
-            ctx.fillRect(
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
+            const ctx =
+                canvas.getContext("2d");
 
             ctx.drawImage(
                 img,
                 0,
-                0,
-                canvas.width,
-                canvas.height
+                0
             );
 
             const imgData =
@@ -854,41 +626,27 @@ $("#downloadPDF").click(async function(){
                 );
 
             if(i > 1){
-
                 pdf.addPage();
             }
 
             pdf.addImage(
-
                 imgData,
-
                 "JPEG",
-
                 0,
-
                 0,
-
                 pdfWidth,
-
                 pdfHeight
             );
         }
-
-        btn.innerHTML =
-            "Saving...";
 
         pdf.save(
             "SLOCK-Catalog.pdf"
         );
 
-        btn.innerHTML =
-            "Done ✓";
+        btn.innerHTML = "Done ✓";
 
         setTimeout(()=>{
-
-            btn.innerHTML =
-                originalText;
-
+            btn.innerHTML = originalText;
         },1500);
 
     }catch(err){
@@ -897,18 +655,13 @@ $("#downloadPDF").click(async function(){
 
         alert(err.message);
 
-        btn.innerHTML =
-            originalText;
+        btn.innerHTML = originalText;
 
     }finally{
 
         btn.disabled = false;
     }
 });
-
-// ========================================
-// RESIZE
-// ========================================
 
 window.addEventListener(
 
@@ -925,11 +678,8 @@ window.addEventListener(
                 getBookSize();
 
             flipbook.turn(
-
                 "size",
-
                 size.width,
-
                 size.height
             );
 
@@ -941,3 +691,4 @@ window.addEventListener(
 
 </body>
 </html>
+
