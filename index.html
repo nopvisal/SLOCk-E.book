@@ -617,34 +617,17 @@ $(document).keydown(function(e){
 // ========================================
 
 function enableZoom(){
+            "pointerup",
 
-    const wrappers =
-        document.querySelectorAll(
-            ".zoom-wrapper"
+            function(e){
+
+                panzoom.handleUp(e);
+            }
         );
 
-    wrappers.forEach(wrapper=>{
-
-        const target =
-            wrapper.querySelector(
-                ".panzoom-target"
-            );
-
-        const panzoom =
-            Panzoom(target,{
-
-                maxScale:5,
-
-                minScale:1,
-
-                contain:"outside",
-
-                pinchAndPan:true
-            });
-
-        // =================================
-        // WHEEL ZOOM
-        // =================================
+        // =============================
+        // MOUSE WHEEL ZOOM
+        // =============================
 
         wrapper.addEventListener(
 
@@ -655,65 +638,55 @@ function enableZoom(){
                 e.preventDefault();
 
                 panzoom.zoomWithWheel(e);
+
+                zoomed = true;
             }
         );
 
-        // =================================
+        // =============================
         // DOUBLE TAP / DOUBLE CLICK
-        // =================================
+        // =============================
+
+        let lastTap = 0;
 
         wrapper.addEventListener(
 
-            "dblclick",
+            "touchend",
 
             function(e){
 
-                e.preventDefault();
+                const currentTime = new Date().getTime();
 
-                const scale =
-                    panzoom.getScale();
+                const tapLength =
+                    currentTime - lastTap;
 
-                if(scale > 1){
+                if(
+                    tapLength < 300 &&
+                    tapLength > 0
+                ){
 
-                    panzoom.reset();
+                    const scale =
+                        panzoom.getScale();
 
-                }else{
+                    if(scale > 1){
 
-                    panzoom.zoom(2,{
-                        animate:true
-                    });
+                        panzoom.reset();
+
+                        zoomed = false;
+
+                    }else{
+
+                        panzoom.zoom(2,{ animate:true });
+
+                        zoomed = true;
+                    }
                 }
+
+                lastTap = currentTime;
             }
-        );
-
-        // =================================
-        // IMPORTANT FIX
-        // =================================
-        // ONLY HANDLE TOUCH
-        // WHEN 2 FINGERS
-        // THIS KEEPS TURNJS 3D SWIPE
-        // =================================
-
-        wrapper.addEventListener(
-
-            "touchmove",
-
-            function(e){
-
-                if(e.touches.length === 2){
-
-                    panzoom.handleTouch(e);
-
-                    e.preventDefault();
-                }
-
-            },
-
-            { passive:false }
         );
     });
 }
-
 // ========================================
 // PDF DOWNLOAD
 // ========================================
