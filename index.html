@@ -2,18 +2,17 @@
 <html lang="en">
 <head>
 
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 
 <meta
-    name="viewport"
-    content="
-        width=device-width,
-        initial-scale=1,
-        maximum-scale=1,
-        user-scalable=no,
-        viewport-fit=cover
-    "
-/>
+name="viewport"
+content="
+width=device-width,
+initial-scale=1,
+maximum-scale=1,
+user-scalable=no,
+viewport-fit=cover
+"/>
 
 <title>SLOCK Catalog</title>
 
@@ -105,6 +104,10 @@ body{
     1px solid rgba(255,255,255,.08);
 
     z-index:9999;
+
+    flex-wrap:wrap;
+
+    gap:10px;
 }
 
 .brand{
@@ -187,13 +190,13 @@ body{
 
     flex:1;
 
+    overflow:hidden;
+
     display:flex;
 
     justify-content:center;
 
     align-items:center;
-
-    overflow:hidden;
 
     position:relative;
 
@@ -236,9 +239,9 @@ body{
 
     position:relative;
 
-    touch-action:none;
-
     background:#111827;
+
+    touch-action:none;
 }
 
 /* =========================================
@@ -299,6 +302,13 @@ body{
 
         font-size:11px;
     }
+
+    .page-indicator{
+
+        min-width:50px;
+
+        font-size:12px;
+    }
 }
 
 </style>
@@ -349,7 +359,7 @@ body{
 </div>
 
 <!-- =====================================
-     SOUND
+     FLIP SOUND
 ===================================== -->
 
 <audio id="flipSound" preload="auto">
@@ -417,12 +427,12 @@ for(let i = 1; i <= TOTAL_PAGES; i++){
 
         target.html(`
             <div style="
-                color:white;
+                width:100%;
+                height:100%;
                 display:flex;
                 justify-content:center;
                 align-items:center;
-                width:100%;
-                height:100%;
+                color:white;
                 font-size:22px;
             ">
                 Missing Page ${i}
@@ -516,9 +526,9 @@ function initBook(){
 
         gradients:true,
 
-        elevation:40,
+        elevation:60,
 
-        duration:700,
+        duration:800,
 
         when:{
 
@@ -536,11 +546,11 @@ function initBook(){
 
     updateCounter(1);
 
-    enablePanZoom();
+    enableZoom();
 }
 
 // ========================================
-// PAGE COUNTER
+// COUNTER
 // ========================================
 
 function updateCounter(page){
@@ -552,13 +562,15 @@ function updateCounter(page){
 }
 
 // ========================================
-// FLIP SOUND
+// SOUND
 // ========================================
 
 function playFlipSound(){
 
     const sound =
-        document.getElementById("flipSound");
+        document.getElementById(
+            "flipSound"
+        );
 
     sound.pause();
 
@@ -601,10 +613,10 @@ $(document).keydown(function(e){
 });
 
 // ========================================
-// PANZOOM
+// ENABLE ZOOM
 // ========================================
 
-function enablePanZoom(){
+function enableZoom(){
 
     const wrappers =
         document.querySelectorAll(
@@ -627,117 +639,12 @@ function enablePanZoom(){
 
                 contain:"outside",
 
-                pinchAndPan:true,
-
-                cursor:"grab"
+                pinchAndPan:true
             });
 
-        let currentScale = 1;
-
-        // =====================================
-        // TRACK SCALE
-        // =====================================
-
-        target.addEventListener(
-            "panzoomchange",
-            (e)=>{
-
-                currentScale =
-                e.detail.scale;
-            }
-        );
-
-        // =====================================
-        // TOUCH START
-        // =====================================
-
-        wrapper.addEventListener(
-
-            "touchstart",
-
-            function(e){
-
-                // ---------------------------------
-                // ONLY ENABLE PANZOOM
-                // WHEN 2 FINGERS
-                // OR ALREADY ZOOMED
-                // ---------------------------------
-
-                if(
-                    e.touches.length === 2 ||
-                    currentScale > 1
-                ){
-
-                    panzoom.handleTouch(e);
-
-                    // DISABLE TURNJS
-                    flipbook.turn(
-                        "disable",
-                        true
-                    );
-                }
-
-            },
-
-            { passive:false }
-        );
-
-        // =====================================
-        // TOUCH MOVE
-        // =====================================
-
-        wrapper.addEventListener(
-
-            "touchmove",
-
-            function(e){
-
-                // ---------------------------------
-                // PAN / PINCH WHEN ZOOMED
-                // ---------------------------------
-
-                if(
-                    e.touches.length === 2 ||
-                    currentScale > 1
-                ){
-
-                    e.preventDefault();
-
-                    panzoom.handleTouch(e);
-                }
-
-            },
-
-            { passive:false }
-        );
-
-        // =====================================
-        // TOUCH END
-        // =====================================
-
-        wrapper.addEventListener(
-
-            "touchend",
-
-            function(){
-
-                // ---------------------------------
-                // RE-ENABLE PAGE FLIP
-                // ---------------------------------
-
-                if(currentScale <= 1){
-
-                    flipbook.turn(
-                        "disable",
-                        false
-                    );
-                }
-            }
-        );
-
-        // =====================================
-        // MOUSE WHEEL ZOOM
-        // =====================================
+        // =================================
+        // WHEEL ZOOM
+        // =================================
 
         wrapper.addEventListener(
 
@@ -748,33 +655,12 @@ function enablePanZoom(){
                 e.preventDefault();
 
                 panzoom.zoomWithWheel(e);
-
-                currentScale =
-                    panzoom.getScale();
-
-                // Disable flip while zoomed
-
-                if(currentScale > 1){
-
-                    flipbook.turn(
-                        "disable",
-                        true
-                    );
-
-                }else{
-
-                    flipbook.turn(
-                        "disable",
-                        false
-                    );
-                }
-
             }
         );
 
-        // =====================================
+        // =================================
         // DOUBLE TAP / DOUBLE CLICK
-        // =====================================
+        // =================================
 
         wrapper.addEventListener(
 
@@ -784,34 +670,50 @@ function enablePanZoom(){
 
                 e.preventDefault();
 
-                if(currentScale > 1){
+                const scale =
+                    panzoom.getScale();
+
+                if(scale > 1){
 
                     panzoom.reset();
 
-                    currentScale = 1;
-
-                    flipbook.turn(
-                        "disable",
-                        false
-                    );
-
                 }else{
 
-                    panzoom.zoomIn();
+                    panzoom.zoom(2,{
+                        animate:true
+                    });
+                }
+            }
+        );
 
-                    currentScale =
-                        panzoom.getScale();
+        // =================================
+        // IMPORTANT FIX
+        // =================================
+        // ONLY HANDLE TOUCH
+        // WHEN 2 FINGERS
+        // THIS KEEPS TURNJS 3D SWIPE
+        // =================================
 
-                    flipbook.turn(
-                        "disable",
-                        true
-                    );
+        wrapper.addEventListener(
+
+            "touchmove",
+
+            function(e){
+
+                if(e.touches.length === 2){
+
+                    panzoom.handleTouch(e);
+
+                    e.preventDefault();
                 }
 
-            }
+            },
+
+            { passive:false }
         );
     });
 }
+
 // ========================================
 // PDF DOWNLOAD
 // ========================================
@@ -881,7 +783,9 @@ $("#downloadPDF").click(async function(){
                 await loadImage(i);
 
             const canvas =
-                document.createElement("canvas");
+                document.createElement(
+                    "canvas"
+                );
 
             const ctx =
                 canvas.getContext("2d");
@@ -892,7 +796,8 @@ $("#downloadPDF").click(async function(){
             canvas.height =
                 img.naturalHeight;
 
-            ctx.fillStyle = "#ffffff";
+            ctx.fillStyle =
+                "#ffffff";
 
             ctx.fillRect(
                 0,
@@ -936,11 +841,15 @@ $("#downloadPDF").click(async function(){
             );
         }
 
-        btn.innerHTML = "Saving...";
+        btn.innerHTML =
+            "Saving...";
 
-        pdf.save("SLOCK-Catalog.pdf");
+        pdf.save(
+            "SLOCK-Catalog.pdf"
+        );
 
-        btn.innerHTML = "Done ✓";
+        btn.innerHTML =
+            "Done ✓";
 
         setTimeout(()=>{
 
@@ -965,26 +874,35 @@ $("#downloadPDF").click(async function(){
 });
 
 // ========================================
-// RESIZE FIX
+// RESIZE
 // ========================================
 
-window.addEventListener("resize",()=>{
+window.addEventListener(
 
-    if(!flipbook.turn("is")) return;
+    "resize",
 
-    setTimeout(()=>{
+    ()=>{
 
-        const size =
-            getBookSize();
+        if(!flipbook.turn("is"))
+        return;
 
-        flipbook.turn(
-            "size",
-            size.width,
-            size.height
-        );
+        setTimeout(()=>{
 
-    },100);
-});
+            const size =
+                getBookSize();
+
+            flipbook.turn(
+
+                "size",
+
+                size.width,
+
+                size.height
+            );
+
+        },100);
+    }
+);
 
 </script>
 
