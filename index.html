@@ -90,7 +90,7 @@
       position: relative;
       overflow: hidden;
       background: #020617;
-      touch-action: none; /* we handle all touch gestures */
+      touch-action: none; /* complete touch control */
     }
 
     .zoom-container {
@@ -100,15 +100,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      transform-origin: center center;
       will-change: transform;
+      transform-origin: center center;
     }
 
     #flipbook {
       box-shadow: 0 25px 50px rgba(0,0,0,0.6);
-      transition: box-shadow 0.2s;
-      /* turn.js will receive clicks/taps only when zoom=1 */
-      pointer-events: auto;
     }
 
     .page {
@@ -161,8 +158,8 @@
       <button class="control-btn" id="prevBtn">◀</button>
       <div class="page-indicator" id="pageCounter">1 / 36</div>
       <button class="control-btn" id="nextBtn">▶</button>
-      <button class="control-btn" id="zoomOutBtn">− Zoom</button>
-      <button class="control-btn" id="zoomInBtn">+ Zoom</button>
+      <button class="control-btn" id="zoomOutBtn">−</button>
+      <button class="control-btn" id="zoomInBtn">+</button>
       <button class="control-btn" id="downloadPDF">PDF</button>
     </div>
   </div>
@@ -170,7 +167,7 @@
     <div class="zoom-container" id="zoomContainer">
       <div id="flipbook"></div>
     </div>
-    <div class="zoom-hint"> Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
+    <div class="zoom-hint">Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
   </div>
 </div>
 
@@ -180,7 +177,7 @@
 
 <script>
   (function() {
-    // ======================== CONFIGURATION ========================
+    // ------------------------------- CONFIG ---------------------------------
     const TOTAL_PAGES = 36;
     const IMAGE_FOLDER = "images/";
     const IMAGE_EXT = "jpg";
@@ -190,9 +187,8 @@
     const zoomContainer = document.getElementById("zoomContainer");
     let loadedPages = 0;
     let bookReady = false;
-    let currentPage = 1;
 
-    // ======================== AUDIO UNLOCK ========================
+    // ------------------------------- AUDIO ----------------------------------
     const flipSound = document.getElementById("flipSound");
     let audioUnlocked = false;
     function unlockAudio() {
@@ -214,10 +210,10 @@
       flipSound.pause();
       flipSound.currentTime = 0;
       flipSound.volume = 0.65;
-      flipSound.play().catch(e => console.log("sound pending interaction"));
+      flipSound.play().catch(() => {});
     }
 
-    // ======================== BUILD PAGES ========================
+    // ------------------------------- BUILD PAGES -----------------------------
     for (let i = 1; i <= TOTAL_PAGES; i++) {
       const $page = $("<div class='page'></div>");
       const $img = $("<img>");
@@ -236,7 +232,7 @@
       $flipbook.append($page);
     }
 
-    // ======================== FLIPBOOK INIT (3D) ========================
+    // ------------------------------- FLIPBOOK (3D) ---------------------------
     function getOptimalBookSize() {
       const areaRect = bookArea.getBoundingClientRect();
       let maxWidth = areaRect.width * 0.92;
@@ -268,11 +264,8 @@
         elevation: 50,
         duration: 600,
         when: {
-          turning: function() { playFlipSound(); },
-          turned: function(e, page) {
-            currentPage = page;
-            updateCounter(page);
-          }
+          turning: () => playFlipSound(),
+          turned: (e, page) => updateCounter(page)
         }
       });
       updateCounter(1);
@@ -289,7 +282,7 @@
       });
     }
 
-    // ======================== PINCH ZOOM & PAN (FIXED - NO OVERLAY) ========================
+    // ------------------------------- PINCH ZOOM + PAN + SWIPE (ALL DEVICES) ----------------
     let currentZoom = 1;
     let currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
@@ -298,12 +291,18 @@
     let isPanning = false;
     let lastTouchX = 0, lastTouchY = 0;
     let lastPanX = 0, lastPanY = 0;
+    
+    // Double-tap detection
     let lastTapTime = 0;
+    let lastTapX = 0, lastTapY = 0;
+    let tapCount = 0;
+    
+    // Swipe detection (when zoom=1)
     let swipeStartX = 0, swipeActive = false;
 
     function applyTransform() {
       zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
-      // When zoomed > 1, disable pointer events on flipbook so turn.js doesn't interfere
+      // Disable turn.js pointer events when zoomed > 1 to avoid conflicts
       if (currentZoom > 1.02) {
         $flipbook.css("pointer-events", "none");
       } else {
@@ -330,11 +329,20 @@
       return Math.hypot(dx, dy);
     }
 
-    // Main touch handler on bookArea (handles all gestures)
+    function getMidpoint(touches) {
+      if (touches.length === 0) return { x: 0, y: 0 };
+      if (touches.length === 1) return { x: touches[0].clientX, y: touches[0].clientY };
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+
+    // Main touch handler
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
       if (touches.length === 2) {
-        // Pinch start
+        // Start pinch
         isPinching = true;
         pinchStartDistance = getDistance(touches);
         initialZoom = currentZoom;
@@ -343,7 +351,7 @@
         e.preventDefault();
       } else if (touches.length === 1) {
         if (currentZoom > 1.02) {
-          // Pan mode
+          // Start pan
           isPanning = true;
           lastTouchX = touches[0].clientX;
           lastTouchY = touches[0].clientY;
@@ -351,9 +359,28 @@
           lastPanY = currentPanY;
           e.preventDefault();
         } else {
-          // Swipe detection for page flip (only when zoom=1)
+          // Potential swipe or double-tap
           swipeStartX = touches[0].clientX;
           swipeActive = true;
+          
+          // Double-tap detection
+          const now = Date.now();
+          const tx = touches[0].clientX;
+          const ty = touches[0].clientY;
+          if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 30) {
+            tapCount++;
+            if (tapCount === 2) {
+              resetZoomAndPan();
+              tapCount = 0;
+              lastTapTime = 0;
+              e.preventDefault();
+            }
+          } else {
+            tapCount = 1;
+            lastTapTime = now;
+            lastTapX = tx;
+            lastTapY = ty;
+          }
         }
       }
     });
@@ -368,7 +395,7 @@
           newZoom = Math.min(4.0, Math.max(1.0, newZoom));
           if (newZoom !== currentZoom) {
             currentZoom = newZoom;
-            // Keep pan stable relative to pinch center
+            // Keep pan stable during pinch
             currentPanX = initialPanX;
             currentPanY = initialPanY;
             applyTransform();
@@ -381,10 +408,10 @@
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           currentPanX = lastPanX + dx;
           currentPanY = lastPanY + dy;
-          // Boundary clamp
+          // Clamp pan to prevent seeing outside the book
           const containerRect = bookArea.getBoundingClientRect();
-          const flipbookEl = document.getElementById("flipbook");
-          const flipRect = flipbookEl.getBoundingClientRect();
+          const flipEl = document.getElementById("flipbook");
+          const flipRect = flipEl.getBoundingClientRect();
           const scaledW = flipRect.width * currentZoom;
           const scaledH = flipRect.height * currentZoom;
           const maxPanX = Math.max(0, (scaledW - containerRect.width) / 2);
@@ -397,21 +424,14 @@
       } else if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
         const deltaX = touches[0].clientX - swipeStartX;
         const deltaY = touches[0].clientY - swipeStartY;
-        if (Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (Math.abs(deltaX) > 20 && Math.abs(deltaX) > Math.abs(deltaY)) {
           e.preventDefault();
         }
       }
     });
 
     bookArea.addEventListener("touchend", (e) => {
-      const now = Date.now();
-      // Double-tap reset
-      if (now - lastTapTime < 250 && !isPinching && !isPanning) {
-        resetZoomAndPan();
-      }
-      lastTapTime = now;
-
-      // Swipe to flip (only when zoom=1 and swipe was active)
+      // Swipe to flip (only when zoom = 1 and not pinch/pan)
       if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning) {
         const changed = e.changedTouches[0];
         if (changed && swipeStartX !== 0) {
@@ -422,14 +442,15 @@
           }
         }
       }
-
+      
+      // Reset gesture flags
       isPinching = false;
       isPanning = false;
       swipeActive = false;
       pinchStartDistance = 0;
     });
 
-    // ======================== BUTTON ZOOM ========================
+    // ------------------------------- BUTTON ZOOM ----------------------------
     document.getElementById("zoomInBtn").addEventListener("click", () => {
       if (!bookReady) return;
       currentZoom = Math.min(4.0, currentZoom + 0.2);
@@ -449,7 +470,7 @@
       applyTransform();
     });
 
-    // ======================== BUTTON FLIPPING ========================
+    // ------------------------------- BUTTON FLIPPING ------------------------
     document.getElementById("prevBtn").addEventListener("click", () => {
       if (bookReady) $flipbook.turn("previous");
     });
@@ -457,7 +478,7 @@
       if (bookReady) $flipbook.turn("next");
     });
 
-    // ======================== PDF EXPORT ========================
+    // ------------------------------- PDF EXPORT -----------------------------
     document.getElementById("downloadPDF").addEventListener("click", async function() {
       const btn = this;
       const originalText = btn.innerHTML;
@@ -505,14 +526,14 @@
       }
     });
 
-    // Keyboard arrows
+    // ------------------------------- KEYBOARD ------------------------------
     document.addEventListener("keydown", (e) => {
       if (!bookReady) return;
       if (e.key === "ArrowLeft") $flipbook.turn("previous");
       if (e.key === "ArrowRight") $flipbook.turn("next");
     });
 
-    // Fallback init
+    // ------------------------------- FALLBACK ------------------------------
     setTimeout(() => {
       if (!bookReady && loadedPages < TOTAL_PAGES) initFlipbook();
     }, 5000);
