@@ -33,7 +33,6 @@
       overflow: hidden;
     }
 
-    /* Top bar */
     .topbar {
       width: 100%;
       min-height: 64px;
@@ -86,7 +85,6 @@
     }
     .control-btn:active { transform: scale(0.96); }
 
-    /* Book area – relative container for zoom + overlay */
     .book-area {
       flex: 1;
       position: relative;
@@ -94,7 +92,6 @@
       background: #020617;
     }
 
-    /* Zoom container – handles pinch scale & pan */
     .zoom-container {
       position: relative;
       width: 100%;
@@ -104,10 +101,8 @@
       align-items: center;
       transform-origin: center center;
       will-change: transform;
-      transition: transform 0.05s linear;
     }
 
-    /* Flipbook – fixed size, 3D flips */
     #flipbook {
       box-shadow: 0 25px 50px rgba(0,0,0,0.6);
     }
@@ -129,7 +124,7 @@
       background: #111827;
     }
 
-    /* Overlay that captures all touch events when zoomed > 1 */
+    /* Overlay that captures touch events when zoomed > 1 */
     .zoom-overlay {
       position: absolute;
       top: 0;
@@ -177,7 +172,7 @@
       <button class="control-btn" id="nextBtn">▶</button>
       <button class="control-btn" id="zoomOutBtn">− Zoom</button>
       <button class="control-btn" id="zoomInBtn">+ Zoom</button>
-      <button class="control-btn" id="downloadPDF"> PDF</button>
+      <button class="control-btn" id="downloadPDF">PDF</button>
     </div>
   </div>
   <div class="book-area" id="bookArea">
@@ -185,7 +180,7 @@
       <div id="flipbook"></div>
     </div>
     <div class="zoom-overlay" id="zoomOverlay"></div>
-    <div class="zoom-hint"> Pinch to zoom · Drag to pan · Double‑tap reset · Swipe when zoom=1</div>
+    <div class="zoom-hint"> Pinch to zoom · Drag to pan · Double‑tap reset · Swipe </div>
   </div>
 </div>
 
@@ -200,13 +195,13 @@
     const IMAGE_FOLDER = "images/";
     const IMAGE_EXT = "jpg";
 
-    // DOM elements
     const $flipbook = $("#flipbook");
     const bookArea = document.getElementById("bookArea");
     const zoomContainer = document.getElementById("zoomContainer");
     const zoomOverlay = document.getElementById("zoomOverlay");
     let loadedPages = 0;
     let bookReady = false;
+    let currentPage = 1;
 
     // ======================== AUDIO UNLOCK ========================
     const flipSound = document.getElementById("flipSound");
@@ -230,7 +225,7 @@
       flipSound.pause();
       flipSound.currentTime = 0;
       flipSound.volume = 0.65;
-      flipSound.play().catch(e => console.log("sound pending user interaction"));
+      flipSound.play().catch(e => console.log("sound pending interaction"));
     }
 
     // ======================== BUILD PAGES ========================
@@ -257,7 +252,7 @@
       const areaRect = bookArea.getBoundingClientRect();
       let maxWidth = areaRect.width * 0.92;
       let maxHeight = areaRect.height * 0.92;
-      const ratio = 0.707; // A4 portrait
+      const ratio = 0.707;
       let width = maxWidth;
       let height = width / ratio;
       if (height > maxHeight) {
@@ -267,7 +262,6 @@
       return { width: Math.floor(width), height: Math.floor(height) };
     }
 
-    let currentPage = 1;
     function updateCounter(page) {
       document.getElementById("pageCounter").innerText = `${page} / ${TOTAL_PAGES}`;
     }
@@ -285,9 +279,7 @@
         elevation: 50,
         duration: 600,
         when: {
-          turning: function(e, page) {
-            playFlipSound();
-          },
+          turning: function() { playFlipSound(); },
           turned: function(e, page) {
             currentPage = page;
             updateCounter(page);
@@ -308,7 +300,7 @@
       });
     }
 
-    // ======================== ZOOM & PAN (hand zoom, independent of turn.js) ========================
+    // ======================== PINCH ZOOM & PAN (FIXED) ========================
     let currentZoom = 1;
     let currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
@@ -321,17 +313,15 @@
 
     function applyTransform() {
       zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
-      // Enable/disable overlay based on zoom level
+      // Show overlay when zoomed > 1 to block turn.js touches
       if (currentZoom > 1.02) {
         zoomOverlay.style.display = "block";
-        // Disable turn.js touch interactions (by capturing all events on overlay)
       } else {
         zoomOverlay.style.display = "none";
-        // reset pan when zoom returns to 1
-        if (currentZoom <= 1.02 && (currentPanX !== 0 || currentPanY !== 0)) {
+        if (currentPanX !== 0 || currentPanY !== 0) {
           currentPanX = 0;
           currentPanY = 0;
-          applyTransform();
+          zoomContainer.style.transform = `translate3d(0px, 0px, 0) scale(1)`;
         }
       }
     }
@@ -350,7 +340,7 @@
       return Math.hypot(dx, dy);
     }
 
-    // All touch logic on the overlay (only active when zoomed)
+    // Touch handling on the overlay (only active when zoomed)
     zoomOverlay.addEventListener("touchstart", (e) => {
       e.preventDefault();
       const touches = e.touches;
@@ -380,7 +370,7 @@
           newZoom = Math.min(4.0, Math.max(1.0, newZoom));
           if (newZoom !== currentZoom) {
             currentZoom = newZoom;
-            // adjust pan to keep center stable
+            // Keep pan stable relative to pinch center
             currentPanX = initialPanX;
             currentPanY = initialPanY;
             applyTransform();
@@ -392,7 +382,7 @@
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           currentPanX = lastPanX + dx;
           currentPanY = lastPanY + dy;
-          // boundary clamp to prevent seeing outside book
+          // Boundary clamp
           const containerRect = bookArea.getBoundingClientRect();
           const flipbookEl = document.getElementById("flipbook");
           const flipRect = flipbookEl.getBoundingClientRect();
@@ -410,7 +400,6 @@
     zoomOverlay.addEventListener("touchend", (e) => {
       const now = Date.now();
       if (now - lastTapTime < 250) {
-        // double tap: reset zoom
         resetZoomAndPan();
       }
       lastTapTime = now;
@@ -422,6 +411,10 @@
     document.getElementById("zoomInBtn").addEventListener("click", () => {
       if (!bookReady) return;
       currentZoom = Math.min(4.0, currentZoom + 0.2);
+      if (currentZoom <= 1.02) {
+        currentPanX = 0;
+        currentPanY = 0;
+      }
       applyTransform();
     });
     document.getElementById("zoomOutBtn").addEventListener("click", () => {
@@ -434,16 +427,11 @@
       applyTransform();
     });
 
-    // ======================== SWIPE TO FLIP (when zoom = 1, turn.js handles it) ========================
-    // BUT turn.js already handles touch if we don't interfere. However, we need to ensure
-    // that when zoom=1, the overlay is hidden (display:none), so touch events go to flipbook.
-    // That's already handled in applyTransform().
-    // Additionally, we can add a manual swipe backup, but turn.js has built-in swipe? Not really.
-    // turn.js relies on click/tap on edges. We'll add our own swipe detection for zoom=1.
+    // ======================== SWIPE TO FLIP (when zoom = 1) ========================
     let swipeStartX = 0, swipeStartY = 0;
     let swipeActive = false;
     bookArea.addEventListener("touchstart", (e) => {
-      if (currentZoom > 1.02) return; // overlay handles
+      if (currentZoom > 1.02) return;
       if (e.target === zoomOverlay) return;
       const touches = e.touches;
       if (touches.length === 1) {
@@ -472,11 +460,8 @@
       if (changed && swipeStartX !== 0) {
         const deltaX = changed.clientX - swipeStartX;
         if (Math.abs(deltaX) > 50) {
-          if (deltaX > 0) {
-            $flipbook.turn("previous");
-          } else {
-            $flipbook.turn("next");
-          }
+          if (deltaX > 0) $flipbook.turn("previous");
+          else $flipbook.turn("next");
         }
       }
       swipeActive = false;
@@ -548,9 +533,7 @@
 
     // Fallback init
     setTimeout(() => {
-      if (!bookReady && loadedPages < TOTAL_PAGES) {
-        initFlipbook();
-      }
+      if (!bookReady && loadedPages < TOTAL_PAGES) initFlipbook();
     }, 5000);
   })();
 </script>
