@@ -33,8 +33,6 @@
       background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
       padding-top: max(env(safe-area-inset-top), 12px);
       padding-bottom: max(env(safe-area-inset-bottom), 12px);
-      padding-left: max(env(safe-area-inset-left), 0px);
-      padding-right: max(env(safe-area-inset-right), 0px);
     }
 
     .app {
@@ -45,7 +43,6 @@
       overflow: hidden;
     }
 
-    /* TOPBAR */
     .topbar {
       width: 100%;
       min-height: 64px;
@@ -82,6 +79,7 @@
       font-size: 14px;
       min-width: 70px;
       text-align: center;
+      font-weight: 500;
     }
 
     .control-btn {
@@ -103,15 +101,10 @@
       box-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
 
-    .control-btn:hover {
-      background: #334155;
-    }
-
     .control-btn:active {
       transform: scale(0.96);
     }
 
-    /* BOOK AREA with ZOOM CONTAINER */
     .book-area {
       flex: 1;
       width: 100%;
@@ -121,7 +114,7 @@
       background: #020617;
     }
 
-    /* ZOOM CONTAINER — handles pinch & pan transforms */
+    /* Zoom container for pinch + pan */
     .zoom-container {
       position: relative;
       width: 100%;
@@ -129,12 +122,10 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      touch-action: none;          /* disable native browser zoom/pan, we handle manually */
+      touch-action: none;
       will-change: transform;
       cursor: grab;
-      transition: transform 0.05s linear;
     }
-
     .zoom-container:active {
       cursor: grabbing;
     }
@@ -144,6 +135,7 @@
       transition: box-shadow 0.2s;
     }
 
+    /* 3D pages are handled by turn.js automatically */
     .page {
       background: #111827;
       overflow: hidden;
@@ -162,43 +154,29 @@
       background: #111827;
     }
 
-    /* reset button style for touch */
     @media (max-width: 768px) {
       .topbar {
         min-height: 58px;
         padding: 10px;
       }
-      .brand {
-        font-size: 15px;
-      }
-      .control-btn {
-        height: 34px;
-        min-width: 34px;
-        font-size: 11px;
-        padding: 0 10px;
-      }
-      .page-indicator {
-        font-size: 12px;
-        min-width: 50px;
-      }
+      .brand { font-size: 15px; }
+      .control-btn { height: 34px; min-width: 34px; font-size: 11px; padding: 0 10px; }
+      .page-indicator { font-size: 12px; min-width: 50px; }
     }
 
-    /* small hint for zoom (optional) */
     .zoom-hint {
       position: absolute;
       bottom: 16px;
       right: 16px;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.55);
       backdrop-filter: blur(8px);
       padding: 6px 12px;
       border-radius: 40px;
       font-size: 11px;
-      color: #cbd5e6;
+      color: #e2e8f0;
       pointer-events: none;
       z-index: 10;
       font-weight: 500;
-      letter-spacing: 0.3px;
-      opacity: 0.7;
     }
   </style>
 </head>
@@ -217,52 +195,53 @@
       <button class="control-btn" id="downloadPDF"> PDF </button>
     </div>
   </div>
-
   <div class="book-area">
     <div id="zoomContainer" class="zoom-container">
       <div id="flipbook"></div>
     </div>
-    <div class="zoom-hint">✌️ pinch to zoom · drag to pan</div>
+    <div class="zoom-hint">✌️ Pinch to zoom · Drag to pan · Swipe to flip</div>
   </div>
 </div>
 
+<!-- Realistic book swipe sound (high quality flip) -->
 <audio id="flipSound" preload="auto">
+  <source src="https://www.soundjay.com/misc/sounds/book-page-turn-3.mp3" type="audio/mpeg">
   <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
 </audio>
 
 <script>
-  // ========================== CONFIG ==========================
+  // ======================== CONFIGURATION ========================
   const TOTAL_PAGES = 36;
   const IMAGE_FOLDER = "images/";
   const IMAGE_EXT = "jpg";
 
-  // DOM elements
   const flipbook = $("#flipbook");
   const zoomContainer = document.getElementById("zoomContainer");
   let loadedPages = 0;
+  let bookReady = false;
 
-  // ========== ZOOM & PAN STATE (hand zoomable) ==========
+  // ======================== ZOOM & PAN STATE ========================
   let currentZoom = 1.0;
   let panX = 0, panY = 0;
   const MIN_ZOOM = 0.6;
   const MAX_ZOOM = 4.0;
 
-  // Touch state for pinch & pan
+  // Gesture state
   let activeTouches = [];
   let initialPinchDistance = 0;
   let initialZoom = 1;
-  let initialPanX = 0, initialPanY = 0;
   let isPinching = false;
   let isPanning = false;
+  let lastTouchX = 0, lastTouchY = 0;
   let lastPanX = 0, lastPanY = 0;
   let lastTouchTime = 0;
   let lastTapPos = null;
 
-  // swipe-to-turn condition (only when zoom <= 1.05 and not panning)
+  // Swipe-to-turn (when zoom near 1)
   let touchStartX = 0, touchStartY = 0;
   let touchMovedForSwipe = false;
 
-  // ========== BUILD PAGES ==========
+  // ======================== BUILD PAGES ========================
   for (let i = 1; i <= TOTAL_PAGES; i++) {
     const page = $("<div class='page'></div>");
     const img = $("<img>");
@@ -273,7 +252,7 @@
       if (loadedPages === TOTAL_PAGES) initBook();
     });
     img.on("error", () => {
-      page.html(`<div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color:white; font-size:22px; background:#111827;"> Missing ${i} </div>`);
+      page.html(`<div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color:white; font-size:22px; background:#111827;"> ⚠️ Missing ${i} </div>`);
       loadedPages++;
       if (loadedPages === TOTAL_PAGES) initBook();
     });
@@ -281,33 +260,33 @@
     flipbook.append(page);
   }
 
-  // ========== HELPER: get dynamic book size (responsive, A4 ratio) ==========
+  // ======================== BOOK SIZE (A4 ratio) ========================
   function getBookSize() {
     const topbar = document.querySelector(".topbar");
     const toolbarHeight = topbar.offsetHeight;
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight - toolbarHeight;
-    const ratio = 0.707; // A4 aspect
+    const ratio = 0.707; // A4 portrait aspect
     let width = screenWidth;
     let height = width / ratio;
     if (height > screenHeight) {
       height = screenHeight;
       width = height * ratio;
     }
-    width *= 0.995;
-    height *= 0.995;
+    width *= 0.99;
+    height *= 0.99;
     return { width: Math.floor(width), height: Math.floor(height) };
   }
 
-  // ========== APPLY TRANSFORM (zoom + pan) ==========
+  // ======================== APPLY ZOOM & PAN ========================
   function applyZoomPanTransform() {
     if (!zoomContainer) return;
-    // Clamp zoom
     currentZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom));
-    // Optional boundary clamping for pan (avoid empty space)
+    // Clamp pan when zoomed to avoid empty borders
     const containerRect = zoomContainer.parentElement?.getBoundingClientRect();
-    const flipRect = document.getElementById("flipbook")?.getBoundingClientRect();
-    if (containerRect && flipRect && currentZoom > 1.0) {
+    const flipEl = document.getElementById("flipbook");
+    if (flipEl && containerRect && currentZoom > 1.0) {
+      const flipRect = flipEl.getBoundingClientRect();
       const scaledWidth = flipRect.width * currentZoom;
       const scaledHeight = flipRect.height * currentZoom;
       const maxPanX = Math.max(0, (scaledWidth - containerRect.width) / 2);
@@ -315,14 +294,12 @@
       panX = Math.min(maxPanX, Math.max(-maxPanX, panX));
       panY = Math.min(maxPanY, Math.max(-maxPanY, panY));
     } else if (currentZoom <= 1.05) {
-      // reset pan when near normal zoom
       panX = 0;
       panY = 0;
     }
     zoomContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${currentZoom})`;
   }
 
-  // reset zoom & pan to default (1.0, centered)
   function resetZoomAndPan() {
     currentZoom = 1.0;
     panX = 0;
@@ -330,7 +307,6 @@
     applyZoomPanTransform();
   }
 
-  // update zoom by delta (buttons)
   function modifyZoom(delta) {
     let newZoom = currentZoom + delta;
     newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
@@ -343,7 +319,17 @@
     applyZoomPanTransform();
   }
 
-  // ========== FLIPBOOK INIT ==========
+  // ======================== REALISTIC SOUND ========================
+  function playFlipSound() {
+    const sound = document.getElementById("flipSound");
+    if (!sound) return;
+    sound.pause();
+    sound.currentTime = 0;
+    sound.volume = 0.75;
+    sound.play().catch(e => console.log("Audio play failed:", e));
+  }
+
+  // ======================== FLIPBOOK INIT (3D EFFECT) ========================
   function initBook() {
     const size = getBookSize();
     flipbook.turn({
@@ -351,36 +337,41 @@
       height: size.height,
       autoCenter: true,
       display: "single",
-      acceleration: true,
-      gradients: true,
-      elevation: 40,
-      duration: 500,
+      acceleration: true,    // enables 3D hardware acceleration
+      gradients: true,      // smooth shading for 3D flip
+      elevation: 50,
+      duration: 700,        // smooth, realistic page turn
       when: {
-        turning: function () {
-          playFlipSound();
+        turning: function(e, page, pageObject) {
+          playFlipSound();   // realistic swipe sound on every turn
         },
-        turned: function (e, page) {
+        turned: function(e, page) {
           updateCounter(page);
+          // after flip, ensure zoom container adapts
+          setTimeout(() => applyZoomPanTransform(), 30);
         }
       }
     });
     updateCounter(1);
-    // No legacy swipe, we attach our own advanced gesture engine
+    bookReady = true;
+    // after book is ready, attach gesture system
+    attachGestures();
+    window.addEventListener("resize", () => setTimeout(handleResize, 100));
+    resetZoomAndPan();
   }
 
   function updateCounter(page) {
     document.getElementById("pageCounter").innerText = `${page} / ${TOTAL_PAGES}`;
   }
 
-  function playFlipSound() {
-    const sound = document.getElementById("flipSound");
-    sound.pause();
-    sound.currentTime = 0;
-    sound.volume = 0.65;
-    sound.play().catch(() => {});
+  function handleResize() {
+    if (!flipbook.turn("is")) return;
+    const size = getBookSize();
+    flipbook.turn("size", size.width, size.height);
+    resetZoomAndPan();
   }
 
-  // ========== CORE PINCH + PAN GESTURE (hand zoomable) ==========
+  // ======================== GESTURE ENGINE (PINCH + PAN + SWIPE) ========================
   function getTouchDistance(touches) {
     if (touches.length < 2) return 0;
     const dx = touches[0].clientX - touches[1].clientX;
@@ -400,11 +391,12 @@
   }
 
   function onTouchStart(e) {
-    e.preventDefault();    // we fully control gestures
+    if (!bookReady) return;
+    e.preventDefault();
     const touches = Array.from(e.touches);
     activeTouches = touches;
 
-    // record page turning detection base (if zoom is near 1)
+    // Prepare for swipe (only when zoom is near 1)
     if (touches.length === 1 && currentZoom <= 1.08) {
       touchStartX = touches[0].clientX;
       touchStartY = touches[0].clientY;
@@ -414,61 +406,51 @@
       touchStartY = 0;
     }
 
-    // PINCH: two fingers
     if (touches.length === 2) {
       isPinching = true;
       initialPinchDistance = getTouchDistance(touches);
       initialZoom = currentZoom;
+      // store center for smooth zoom
       const center = getTouchCenter(touches);
-      // store for later correction (optional preserve point)
-      initialPanX = panX;
-      initialPanY = panY;
       lastPanX = panX;
       lastPanY = panY;
-    }
-    // PAN (if zoomed enough & single finger) but we'll handle in move
-    else if (touches.length === 1 && currentZoom > 1.05) {
+    } else if (touches.length === 1 && currentZoom > 1.05) {
       isPanning = true;
+      lastTouchX = touches[0].clientX;
+      lastTouchY = touches[0].clientY;
       lastPanX = panX;
       lastPanY = panY;
-      const touch = touches[0];
-      lastTouchX = touch.clientX;
-      lastTouchY = touch.clientY;
     } else {
       isPanning = false;
     }
   }
 
-  let lastTouchX = 0, lastTouchY = 0;
   function onTouchMove(e) {
+    if (!bookReady) return;
     e.preventDefault();
     const touches = Array.from(e.touches);
     activeTouches = touches;
 
-    // PINCH (two fingers)
+    // PINCH ZOOM
     if (touches.length === 2 && isPinching) {
       const newDistance = getTouchDistance(touches);
       if (initialPinchDistance > 0) {
         let scaleFactor = newDistance / initialPinchDistance;
         let newZoom = initialZoom * scaleFactor;
         newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
-
-        // optional: adjust pan to keep pinch center stable
         if (newZoom !== currentZoom) {
-          const currentCenter = getTouchCenter(touches);
+          const center = getTouchCenter(touches);
           const containerRect = zoomContainer.parentElement.getBoundingClientRect();
-          const flipbookEl = document.getElementById("flipbook");
-          const flipRect = flipbookEl?.getBoundingClientRect();
+          const flipEl = document.getElementById("flipbook");
+          const flipRect = flipEl?.getBoundingClientRect();
           if (flipRect && containerRect) {
-            // relative to zoom container
-            const relativeX = (currentCenter.x - containerRect.left) / containerRect.width;
-            const relativeY = (currentCenter.y - containerRect.top) / containerRect.height;
+            const relX = (center.x - containerRect.left) / containerRect.width;
+            const relY = (center.y - containerRect.top) / containerRect.height;
             const prevZoom = currentZoom;
             currentZoom = newZoom;
-            // adjust pan so that the point under fingers stays at same visual location
             if (prevZoom !== 0) {
-              panX = (panX + (relativeX * containerRect.width) * (1 - newZoom/prevZoom));
-              panY = (panY + (relativeY * containerRect.height) * (1 - newZoom/prevZoom));
+              panX = (panX + (relX * containerRect.width) * (1 - newZoom/prevZoom));
+              panY = (panY + (relY * containerRect.height) * (1 - newZoom/prevZoom));
             }
           } else {
             currentZoom = newZoom;
@@ -477,7 +459,7 @@
         }
       }
     }
-    // PAN (single finger with zoom > 1.05)
+    // PAN (single finger, zoomed)
     else if (touches.length === 1 && currentZoom > 1.05 && !isPinching) {
       if (!isPanning) {
         isPanning = true;
@@ -492,46 +474,45 @@
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
         panX = lastPanX + dx;
         panY = lastPanY + dy;
-        // boundaries on next apply
         applyZoomPanTransform();
       }
     }
-    // detect swipe for page turning (only when zoom <= 1.08 and one finger, not pan mode)
-    else if (touches.length === 1 && currentZoom <= 1.08 && !isPinching) {
-      const touch = touches[0];
-      const deltaX = touch.clientX - touchStartX;
-      const deltaY = touch.clientY - touchStartY;
-      if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) {
+    // Detect swipe movement for page flip (only when zoom low)
+    else if (touches.length === 1 && currentZoom <= 1.08 && !isPinching && touchStartX !== 0) {
+      const deltaX = touches[0].clientX - touchStartX;
+      const deltaY = touches[0].clientY - touchStartY;
+      if (Math.abs(deltaX) > 15 || Math.abs(deltaY) > 15) {
         touchMovedForSwipe = true;
       }
     }
   }
 
   function onTouchEnd(e) {
+    if (!bookReady) return;
     e.preventDefault();
-    const remainingTouches = e.touches.length;
-    // handle swipe-to-turn only if zoom is near normal and no pinch occurred
     const wasPinching = isPinching;
-    if (!wasPinching && currentZoom <= 1.08 && !isPinching && touchStartX !== 0 && touchMovedForSwipe) {
-      const finalTouch = e.changedTouches[0];
-      if (finalTouch) {
-        const deltaX = finalTouch.clientX - touchStartX;
-        if (Math.abs(deltaX) > 55) {
+
+    // HANDLE SWIPE TO TURN PAGE (realistic 3D flip)
+    if (!wasPinching && currentZoom <= 1.08 && touchStartX !== 0 && touchMovedForSwipe) {
+      const changed = e.changedTouches[0];
+      if (changed) {
+        const deltaX = changed.clientX - touchStartX;
+        if (Math.abs(deltaX) > 50) {
           if (deltaX < 0) {
             flipbook.turn("next");
           } else {
             flipbook.turn("previous");
           }
-          touchMovedForSwipe = false;
+          // play sound is already triggered by 'turning' event, but we ensure no double
         }
       }
+      touchMovedForSwipe = false;
     }
 
-    // Double-tap reset gesture (hand zoom reset)
+    // Double tap reset (zoom + pan)
     if (e.touches.length === 0 && !wasPinching) {
       const now = Date.now();
       if (now - lastTouchTime < 280 && lastTapPos) {
-        // double tap detected: reset zoom & pan to 1.0
         resetZoomAndPan();
         lastTouchTime = 0;
         lastTapPos = null;
@@ -543,53 +524,32 @@
       }
     }
 
-    // Reset gesture flags
+    // reset gesture flags
     isPinching = false;
     isPanning = false;
     activeTouches = [];
     initialPinchDistance = 0;
     touchStartX = 0;
     touchStartY = 0;
-    touchMovedForSwipe = false;
-    // final boundary check for pan
     applyZoomPanTransform();
   }
 
-  // Attach gesture listeners to zoomContainer (full control)
   function attachGestures() {
     if (!zoomContainer) return;
     zoomContainer.addEventListener("touchstart", onTouchStart, { passive: false });
     zoomContainer.addEventListener("touchmove", onTouchMove, { passive: false });
     zoomContainer.addEventListener("touchend", onTouchEnd);
     zoomContainer.addEventListener("touchcancel", onTouchEnd);
-    // also prevent mouse contextmenu on container
     zoomContainer.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
-  // ========== RESIZE HANDLER ==========
-  function handleResize() {
-    if (!flipbook.turn("is")) return;
-    const size = getBookSize();
-    flipbook.turn("size", size.width, size.height);
-    // Reset zoom & pan on window resize for better UX (prevents weird boundaries)
-    resetZoomAndPan();
-  }
+  // ======================== BUTTON CONTROLS ========================
+  $("#prevBtn").click(() => { if (bookReady) flipbook.turn("previous"); });
+  $("#nextBtn").click(() => { if (bookReady) flipbook.turn("next"); });
+  $("#zoomIn").click(() => modifyZoom(0.2));
+  $("#zoomOut").click(() => modifyZoom(-0.2));
 
-  // ========== BUTTON ACTIONS ==========
-  $("#prevBtn").click(() => {
-    if (flipbook.turn("is")) flipbook.turn("previous");
-  });
-  $("#nextBtn").click(() => {
-    if (flipbook.turn("is")) flipbook.turn("next");
-  });
-  $("#zoomIn").click(() => {
-    modifyZoom(0.2);
-  });
-  $("#zoomOut").click(() => {
-    modifyZoom(-0.2);
-  });
-
-  // PDF DOWNLOAD (remains untouched, fully compatible)
+  // ======================== PDF EXPORT (unchanged, robust) ========================
   $("#downloadPDF").click(async function () {
     const btn = this;
     const originalText = btn.innerHTML;
@@ -628,53 +588,40 @@
       btn.innerHTML = "💾 Saving...";
       pdf.save("slock_catalog.pdf");
       btn.innerHTML = "✅ Done!";
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-      }, 1500);
+      setTimeout(() => { btn.innerHTML = originalText; }, 1500);
     } catch (err) {
       console.error(err);
-      alert("PDF Error: " + err.message);
+      alert("PDF error: " + err.message);
       btn.innerHTML = originalText;
     } finally {
       btn.disabled = false;
     }
   });
 
-  // Keyboard arrows
+  // ======================== KEYBOARD SUPPORT ========================
   $(document).keydown((e) => {
+    if (!bookReady) return;
     if (e.key === "ArrowLeft") flipbook.turn("previous");
     if (e.key === "ArrowRight") flipbook.turn("next");
   });
 
-  // wait for all pages load then init gestures & resize observer
-  let bookInitialized = false;
-  function waitForBookAndAttach() {
-    if (loadedPages === TOTAL_PAGES && !bookInitialized) {
-      bookInitialized = true;
-      attachGestures();
-      window.addEventListener("resize", () => {
-        setTimeout(handleResize, 80);
-      });
-      // extra initial reset
-      setTimeout(() => {
-        resetZoomAndPan();
-      }, 100);
+  // Wait for pages to load before allowing interactions
+  function waitForPagesAndEnable() {
+    if (loadedPages === TOTAL_PAGES && !bookReady) {
+      // book will be initialized inside initBook called from last image load.
+    } else if (loadedPages === TOTAL_PAGES && bookReady) {
+      // already ready
+      return;
     } else {
-      setTimeout(waitForBookAndAttach, 80);
+      setTimeout(waitForPagesAndEnable, 60);
     }
   }
-  waitForBookAndAttach();
+  waitForPagesAndEnable();
 
-  // small fix: after flipbook size changes, keep zoom bounds in check
-  function monitorBoundsAfterTurn() {
-    if (flipbook.turn("is")) {
-      setTimeout(() => {
-        if (currentZoom > 1.05) applyZoomPanTransform();
-      }, 20);
-    }
-  }
-  $(document).on("turned", "#flipbook", () => {
-    monitorBoundsAfterTurn();
+  // extra: ensure sound loads and is ready
+  window.addEventListener("load", () => {
+    const sound = document.getElementById("flipSound");
+    if (sound) sound.load();
   });
 </script>
 </body>
