@@ -1,11 +1,9 @@
-Here is an optimized HTML document with a dramatically faster PDF export feature that generates the catalog in seconds instead of minutes.
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK Catalog</title>
+  <title>SLOCK Catalog — Lightning Fast</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -172,7 +170,6 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       z-index: 20;
     }
 
-    /* Fast Loader */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -231,7 +228,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       .loader-text { font-size: 0.75rem; bottom: 25%; }
     }
 
-    /* PDF Progress Toast */
+    /* PDF Progress Bar */
     .pdf-progress {
       position: fixed;
       bottom: 30px;
@@ -251,9 +248,10 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       font-weight: 500;
       color: white;
       pointer-events: none;
+      white-space: nowrap;
     }
     .pdf-progress .bar {
-      width: 140px;
+      width: 160px;
       height: 4px;
       background: #334155;
       border-radius: 4px;
@@ -263,7 +261,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       width: 0%;
       height: 100%;
       background: #38bdf8;
-      transition: width 0.08s linear;
+      transition: width 0.05s linear;
     }
     @media (max-width: 600px) {
       .pdf-progress { padding: 8px 16px; gap: 10px; font-size: 0.7rem; }
@@ -324,6 +322,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
     
     // Store loaded image elements for instant PDF access
     let loadedImages = new Array(TOTAL_PAGES + 1).fill(null);
+    let imageLoadPromises = [];
     
     // Audio
     const flipSound = document.getElementById("flipSound");
@@ -344,16 +343,15 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
 
     function playFlipSound() {
       if (!flipSound || !audioUnlocked) return;
-      flipSound.pause();
       flipSound.currentTime = 0;
-      flipSound.volume = 0.65;
+      flipSound.volume = 0.5;
       flipSound.play().catch(() => {});
     }
 
     function hideLoader() {
       if (torxLoader) {
         torxLoader.style.opacity = "0";
-        setTimeout(() => { torxLoader.style.display = "none"; }, 400);
+        setTimeout(() => { if(torxLoader) torxLoader.style.display = "none"; }, 400);
       }
     }
 
@@ -371,32 +369,36 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
         fetchpriority: pageNum <= 4 ? "high" : "auto"
       });
       
-      $img.on("load", function() {
-        loadedPages++;
-        // Store the loaded image element for fast PDF access
-        loadedImages[pageNum] = this;
+      const loadPromise = new Promise((resolve) => {
+        $img.on("load", function() {
+          loadedPages++;
+          loadedImages[pageNum] = this;
+          resolve(this);
+          if (pageNum === 1 && !firstPageReady) {
+            firstPageReady = true;
+            initFlipbook();
+            hideLoader();
+            preloadNearbyPages();
+          }
+        });
         
-        if (pageNum === 1 && !firstPageReady) {
-          firstPageReady = true;
-          initFlipbook();
-          hideLoader();
-          preloadNearbyPages();
-        }
+        $img.on("error", () => {
+          $page.html(`
+            <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color:white; background:#111827; font-size:18px;">
+              ⚠ Missing ${pageNum}
+            </div>`);
+          loadedPages++;
+          loadedImages[pageNum] = null;
+          resolve(null);
+          if (pageNum === 1 && !firstPageReady) {
+            firstPageReady = true;
+            initFlipbook();
+            hideLoader();
+          }
+        });
       });
       
-      $img.on("error", () => {
-        $page.html(`
-          <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color:white; background:#111827; font-size:18px;">
-            ⚠ Missing ${pageNum}
-          </div>`);
-        loadedPages++;
-        if (pageNum === 1 && !firstPageReady) {
-          firstPageReady = true;
-          initFlipbook();
-          hideLoader();
-        }
-      });
-      
+      imageLoadPromises.push(loadPromise);
       $page.append($img);
       return $page;
     }
@@ -406,14 +408,15 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       $flipbook.append(createPage(i));
     }
 
-    // Preload next pages after page 1 loads
     function preloadNearbyPages() {
       const preloadCount = 6;
       for (let i = 2; i <= Math.min(preloadCount, TOTAL_PAGES); i++) {
-        const img = new Image();
-        img.decoding = "async";
-        img.fetchPriority = "high";
-        img.src = `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`;
+        if (!loadedImages[i]) {
+          const img = new Image();
+          img.decoding = "async";
+          img.fetchPriority = "high";
+          img.src = `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`;
+        }
       }
     }
 
@@ -447,7 +450,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
         acceleration: true,
         gradients: true,
         elevation: 50,
-        duration: 600,
+        duration: 500,
         when: {
           turning: () => playFlipSound(),
           turned: (e, page) => updateCounter(page)
@@ -584,10 +587,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
         e.preventDefault();
       } else if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
         const deltaX = touches[0].clientX - swipeStartX;
-        const deltaY = touches[0].clientY - swipeStartY;
-        if (Math.abs(deltaX) > 20 && Math.abs(deltaX) > Math.abs(deltaY)) {
-          e.preventDefault();
-        }
+        if (Math.abs(deltaX) > 20) e.preventDefault();
       }
     });
 
@@ -596,7 +596,7 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
         const changed = e.changedTouches[0];
         if (changed && swipeStartX !== 0) {
           const deltaX = changed.clientX - swipeStartX;
-          if (Math.abs(deltaX) > 50) {
+          if (Math.abs(deltaX) > 45) {
             if (deltaX > 0) $flipbook.turn("previous");
             else $flipbook.turn("next");
           }
@@ -608,7 +608,6 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       pinchStartDistance = 0;
     });
 
-    // Button events
     document.getElementById("zoomInBtn").addEventListener("click", () => {
       if (!bookReady) return;
       currentZoom = Math.min(4.0, currentZoom + 0.2);
@@ -629,8 +628,9 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       if (e.key === "ArrowRight") $flipbook.turn("next");
     });
 
-    // ========== FAST PDF EXPORT ==========
-    // Show progress toast
+    // ========== ULTRA FAST PDF EXPORT ==========
+    // Parallel image loading and processing
+    
     function showPDFProgress(current, total) {
       let toast = document.getElementById("pdfProgressToast");
       if (!toast) {
@@ -652,91 +652,112 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
       if (percentSpan) percentSpan.innerText = percent + "%";
       toast.style.display = "flex";
       if (current === total) {
-        setTimeout(() => { if (toast) toast.style.display = "none"; }, 1200);
+        setTimeout(() => { if (toast) toast.style.display = "none"; }, 1000);
       }
+    }
+
+    // Fast image to dataURL conversion with lower quality for speed
+    function imageToDataURL(img, quality = 0.65) {
+      return new Promise((resolve) => {
+        if (!img || !img.naturalWidth) {
+          resolve(null);
+          return;
+        }
+        // Use requestAnimationFrame to not block UI
+        requestAnimationFrame(() => {
+          try {
+            const canvas = document.createElement("canvas");
+            // Scale down for faster processing (A4 needs ~800px width)
+            const targetWidth = Math.min(img.naturalWidth, 900);
+            const ratio = targetWidth / img.naturalWidth;
+            canvas.width = targetWidth;
+            canvas.height = img.naturalHeight * ratio;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          } catch(e) {
+            resolve(null);
+          }
+        });
+      });
     }
 
     document.getElementById("downloadPDF").addEventListener("click", async function() {
       const btn = this;
       const originalText = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = "📄 PDF...";
+      btn.innerHTML = "Generating...";
       
       try {
         const { jsPDF } = window.jspdf;
         
-        // Use lower quality for speed (0.75 instead of 0.95)
-        const JPEG_QUALITY = 0.75;
+        // Wait for all images to be loaded (but with timeout)
+        await Promise.race([
+          Promise.all(imageLoadPromises),
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ]);
         
-        // Create PDF with optimized settings
-        const pdf = new jsPDF({ 
-          orientation: "portrait", 
-          unit: "mm", 
-          format: "a4", 
-          compress: true,
-          hotfixes: ["px_scaling"]
-        });
+        // Pre-convert all images to dataURL in parallel
+        showPDFProgress(0, TOTAL_PAGES);
+        btn.innerHTML = "Processing...";
         
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        // Process pages in batches with delays to prevent UI freeze
+        const conversionPromises = [];
         for (let i = 1; i <= TOTAL_PAGES; i++) {
-          showPDFProgress(i, TOTAL_PAGES);
-          btn.innerHTML = `📄 ${i}/${TOTAL_PAGES}`;
-          
-          let imgElement = loadedImages[i];
-          
-          // If image not loaded yet, try to load it quickly
-          if (!imgElement || !imgElement.complete || imgElement.naturalWidth === 0) {
-            imgElement = await new Promise((resolve) => {
+          let img = loadedImages[i];
+          if (!img || !img.complete || img.naturalWidth === 0) {
+            // Try to load missing image quickly
+            img = await new Promise((resolve) => {
               const tempImg = new Image();
               tempImg.crossOrigin = "anonymous";
               tempImg.onload = () => resolve(tempImg);
               tempImg.onerror = () => resolve(null);
               tempImg.src = `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`;
-              setTimeout(() => resolve(null), 1000);
+              setTimeout(() => resolve(null), 800);
             });
           }
-          
-          if (imgElement && imgElement.naturalWidth > 0) {
-            // Create canvas and draw image (faster with smaller dimensions)
-            const canvas = document.createElement("canvas");
-            // Resize for PDF - keep aspect ratio but limit max dimension for speed
-            let drawWidth = imgElement.naturalWidth;
-            let drawHeight = imgElement.naturalHeight;
-            const maxDim = 1200;
-            if (drawWidth > maxDim) {
-              const ratio = maxDim / drawWidth;
-              drawWidth = maxDim;
-              drawHeight = drawHeight * ratio;
-            }
-            canvas.width = drawWidth;
-            canvas.height = drawHeight;
-            
-            const ctx = canvas.getContext("2d");
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(imgElement, 0, 0, drawWidth, drawHeight);
-            
-            // Use JPEG with quality setting
-            const imgData = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-            
-            if (i > 1) pdf.addPage();
-            pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-          }
-          
-          // Small yield to keep UI responsive
-          if (i % 5 === 0) await new Promise(r => setTimeout(r, 5));
+          conversionPromises.push(imageToDataURL(img, 0.6));
         }
         
-        btn.innerHTML = "💾 Saving";
+        // Wait for all conversions (parallel)
+        const dataURLs = await Promise.all(conversionPromises);
+        
+        // Create PDF and add pages (super fast since images are pre-converted)
+        btn.innerHTML = "Building PDF...";
+        const pdf = new jsPDF({ 
+          orientation: "portrait", 
+          unit: "mm", 
+          format: "a4", 
+          compress: true
+        });
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        let addedCount = 0;
+        for (let i = 0; i < TOTAL_PAGES; i++) {
+          const dataURL = dataURLs[i];
+          if (dataURL) {
+            if (i > 0) pdf.addPage();
+            pdf.addImage(dataURL, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+          }
+          addedCount++;
+          if (addedCount % 5 === 0 || addedCount === TOTAL_PAGES) {
+            showPDFProgress(addedCount, TOTAL_PAGES);
+            btn.innerHTML = `📄 ${addedCount}/${TOTAL_PAGES}`;
+            await new Promise(r => setTimeout(r, 1)); // Yield for UI
+          }
+        }
+        
+        btn.innerHTML = "💾 Saving...";
         pdf.save("slock_catalog.pdf");
         btn.innerHTML = "✅ Done!";
+        
         setTimeout(() => {
           btn.innerHTML = originalText;
           btn.disabled = false;
-        }, 1200);
+        }, 1000);
         
       } catch (err) {
         console.error(err);
@@ -762,4 +783,3 @@ Here is an optimized HTML document with a dramatically faster PDF export feature
 </script>
 </body>
 </html>
-```
