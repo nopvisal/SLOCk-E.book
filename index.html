@@ -37,6 +37,7 @@
       overflow: hidden;
     }
 
+    /* Navbar – clean & professional */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -138,12 +139,21 @@
       }
     }
 
+    /* Book area – hidden until torx fades */
     .book-area {
       flex: 1;
       position: relative;
       overflow: hidden;
       background: #020617;
       touch-action: none;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .book-area.visible {
+      visibility: visible;
+      opacity: 1;
     }
 
     .zoom-container {
@@ -167,7 +177,6 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      position: relative;
     }
 
     .page img {
@@ -177,33 +186,6 @@
       display: block;
       pointer-events: none;
       background: #111827;
-    }
-
-    /* No spinner for first page, just a background */
-    .page-placeholder {
-      width: 100%;
-      height: 100%;
-      background: #111827;
-    }
-
-    .page-loader {
-      position: absolute;
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(56, 189, 248, 0.2);
-      border-top: 3px solid #38bdf8;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
     }
 
     .zoom-hint {
@@ -221,6 +203,7 @@
       z-index: 20;
     }
 
+    /* Torx loader – covers everything until page1 is ready */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -228,24 +211,24 @@
       width: 100%;
       height: 100%;
       background: radial-gradient(circle at center, #0f172a, #020617);
-      z-index: 100000;
+      z-index: 200000;
       display: flex;
       justify-content: center;
       align-items: center;
-      backdrop-filter: blur(4px);
-      transition: opacity 0.2s ease;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.4s ease;
     }
 
     .torx {
-      width: 70px;
-      height: 70px;
+      width: 80px;
+      height: 80px;
       animation: spin 1s linear infinite;
     }
 
     .torx svg {
       width: 100%;
       height: 100%;
-      filter: drop-shadow(0 0 6px #38bdf8);
+      filter: drop-shadow(0 0 8px #38bdf8);
     }
 
     .torx .path {
@@ -256,6 +239,16 @@
       stroke-dasharray: 240;
       stroke-dashoffset: 0;
       animation: dash 1.2s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     @keyframes dash {
@@ -276,20 +269,21 @@
       position: absolute;
       bottom: 30%;
       text-align: center;
-      color: #94a3b8;
-      font-size: 0.85rem;
+      color: #cbd5e6;
+      font-size: 0.9rem;
       font-weight: 500;
+      letter-spacing: 2px;
       width: 100%;
     }
 
     @media (max-width: 768px) {
       .torx {
-        width: 55px;
-        height: 55px;
+        width: 60px;
+        height: 60px;
       }
 
       .loader-text {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         bottom: 25%;
       }
     }
@@ -343,91 +337,91 @@
       const IMG_PATH = "images/";
       const EXT = "webp";
 
+      // DOM elements
       const $book = $("#flipbook");
       const bookArea = document.getElementById("bookArea");
       const zoomContainer = document.getElementById("zoomContainer");
-      const torx = document.getElementById("torxLoader");
+      const torxLoader = document.getElementById("torxLoader");
       let bookReady = false;
 
-      // Preload first page image immediately (critical)
-      const firstPageImg = new Image();
-      firstPageImg.crossOrigin = "anonymous";
-      firstPageImg.src = `${IMG_PATH}page1.${EXT}`;
+      // ---------- STEP 1: PRELOAD PAGE 1 WITH HIGHEST PRIORITY ----------
+      let page1Loaded = false;
+      const page1Img = new Image();
+      page1Img.crossOrigin = "anonymous";
+      page1Img.fetchPriority = "high";
+      page1Img.onload = () => {
+        page1Loaded = true;
+        // Insert image into page 1 container
+        const $firstPage = $book.find(".page:first-child");
+        if ($firstPage.length) {
+          $firstPage.empty().append($("<img>").attr("src", page1Img.src).attr("crossorigin", "anonymous"));
+        }
+        // Hide torx and reveal book
+        if (torxLoader) {
+          torxLoader.style.opacity = "0";
+          setTimeout(() => {
+            torxLoader.style.display = "none";
+            bookArea.classList.add("visible");
+          }, 400);
+        }
+        // Start flipbook (it will use the already filled page)
+        initFlipbook();
+        // Preload remaining pages in background (non-blocking)
+        for (let i = 2; i <= TOTAL; i++) {
+          preloadPage(i);
+        }
+      };
+      page1Img.onerror = () => {
+        // If page1 fails, still show book with error message
+        page1Loaded = true;
+        const $firstPage = $book.find(".page:first-child");
+        if ($firstPage.length) {
+          $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ Page 1 missing</div>`);
+        }
+        if (torxLoader) {
+          torxLoader.style.opacity = "0";
+          setTimeout(() => {
+            torxLoader.style.display = "none";
+            bookArea.classList.add("visible");
+          }, 400);
+        }
+        initFlipbook();
+      };
+      page1Img.src = `${IMG_PATH}page1.${EXT}`;
 
-      // Preload pages 2 and 3 in background
-      const preloadOthers = [2, 3];
-      preloadOthers.forEach(p => {
+      // Preload helper (for background pages)
+      function preloadPage(num) {
         const img = new Image();
-        img.src = `${IMG_PATH}page${p}.${EXT}`;
-      });
+        img.crossOrigin = "anonymous";
+        img.src = `${IMG_PATH}page${num}.${EXT}`;
+        img.onload = () => {
+          // When the image loads, replace the page's content if it's still a placeholder
+          const $page = $book.find(`.page:eq(${num - 1})`);
+          if ($page.length && !$page.find("img").length) {
+            $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
+            // If flipbook already active, force a tiny repaint
+            if (bookReady && $book.turn("is")) {
+              const current = $book.turn("page");
+              $book.turn("page", current);
+            }
+          }
+        };
+      }
 
-      // Create pages: page1 gets a placeholder div (no spinner), others get spinner
+      // ---------- CREATE ALL PAGES WITH EMPTY PLACEHOLDERS ----------
       for (let i = 1; i <= TOTAL; i++) {
         const $page = $("<div class='page'></div>");
         if (i === 1) {
-          // Add a simple background placeholder (no spinner)
-          $page.append($("<div class='page-placeholder'></div>"));
+          // Page 1 will be filled when preload finishes; leave empty for now
+          $page.append("<div style='width:100%; height:100%; background:#111827;'></div>");
         } else {
-          $page.append($("<div class='page-loader'></div>"));
+          // Other pages get a subtle dark placeholder (no spinner visible)
+          $page.append("<div style='width:100%; height:100%; background:#111827;'></div>");
         }
         $book.append($page);
       }
 
-      // Replace page1 placeholder with real image as soon as it loads
-      firstPageImg.onload = () => {
-        const $firstPage = $book.find(".page:first-child");
-        $firstPage.find(".page-placeholder").remove();
-        const $img = $("<img>").attr("src", firstPageImg.src).attr("crossorigin", "anonymous");
-        $firstPage.append($img);
-        // Hide torx loader immediately when first image is ready
-        hideTorxNow();
-      };
-      firstPageImg.onerror = () => {
-        const $firstPage = $book.find(".page:first-child");
-        $firstPage.find(".page-placeholder").remove();
-        $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ 1</div>`);
-        hideTorxNow();
-      };
-
-      // Load remaining pages (2..36) asynchronously
-      for (let i = 2; i <= TOTAL; i++) {
-        const $page = $book.find(`.page:eq(${i - 1})`);
-        loadPageImage(i, $page);
-      }
-
-      function loadPageImage(num, $page) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          $page.find(".page-loader").remove();
-          $page.find("img").remove();
-          const $img = $("<img>").attr("src", img.src).attr("crossorigin", "anonymous");
-          $page.append($img);
-          if (bookReady && $book.turn("is")) {
-            const current = $book.turn("page");
-            $book.turn("page", current); // refresh if needed
-          }
-        };
-        img.onerror = () => {
-          $page.find(".page-loader").remove();
-          $page.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ ${num}</div>`);
-        };
-        img.src = `${IMG_PATH}page${num}.${EXT}`;
-      }
-
-      // Audio unlock
-      const flipSound = document.getElementById("flipSound");
-      let audioUnlocked = false;
-      function unlockAudio() {
-        if (audioUnlocked) return;
-        if (flipSound) flipSound.play().then(() => { flipSound.pause(); flipSound.currentTime = 0; audioUnlocked = true; }).catch(() => { });
-        audioUnlocked = true;
-      }
-      document.body.addEventListener("touchstart", unlockAudio, { once: true });
-      document.body.addEventListener("click", unlockAudio, { once: true });
-      function playFlipSound() { if (flipSound && audioUnlocked) { flipSound.pause(); flipSound.currentTime = 0; flipSound.volume = 0.65; flipSound.play().catch(() => { }); } }
-
-      // Flipbook init
+      // ---------- FLIPBOOK INIT (called after page1 is ready) ----------
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -436,11 +430,18 @@
         if (h > maxH) { h = maxH; w = h * ratio; }
         return { width: Math.floor(w), height: Math.floor(h) };
       }
-      function updateCounter(p) { document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`; }
-      function initBook() {
+
+      function updateCounter(p) {
+        document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
+      }
+
+      function initFlipbook() {
         if (bookReady) return;
         const sz = getBookSize();
-        if (sz.width < 50 || sz.height < 50) { setTimeout(initBook, 30); return; }
+        if (sz.width < 50 || sz.height < 50) {
+          setTimeout(initFlipbook, 30);
+          return;
+        }
         $book.turn({
           width: sz.width, height: sz.height,
           autoCenter: true, display: "single",
@@ -463,22 +464,27 @@
           }
         });
       }
-      setTimeout(initBook, 20);
 
-      // Hide torx loader as soon as page1 image loads OR max 250ms
-      let torxHidden = false;
-      function hideTorxNow() {
-        if (torxHidden) return;
-        torxHidden = true;
-        if (torx) {
-          torx.style.opacity = "0";
-          setTimeout(() => { torx.style.display = "none"; }, 200);
+      // ---------- AUDIO ----------
+      const flipSound = document.getElementById("flipSound");
+      let audioUnlocked = false;
+      function unlockAudio() {
+        if (audioUnlocked) return;
+        if (flipSound) flipSound.play().then(() => { flipSound.pause(); flipSound.currentTime = 0; audioUnlocked = true; }).catch(() => { });
+        audioUnlocked = true;
+      }
+      document.body.addEventListener("touchstart", unlockAudio, { once: true });
+      document.body.addEventListener("click", unlockAudio, { once: true });
+      function playFlipSound() {
+        if (flipSound && audioUnlocked) {
+          flipSound.pause();
+          flipSound.currentTime = 0;
+          flipSound.volume = 0.65;
+          flipSound.play().catch(() => { });
         }
       }
-      // Fallback hide after 250ms
-      setTimeout(hideTorxNow, 250);
 
-      // Zoom, pan, swipe, double-tap (fully functional)
+      // ---------- ZOOM + PAN + DOUBLE-TAP + SWIPE ----------
       let zoom = 1, panX = 0, panY = 0;
       let initZoom = 1, initPanX = 0, initPanY = 0;
       let pinchDist = 0, pinching = false, panning = false;
@@ -494,65 +500,69 @@
       function resetZoomPan() { zoom = 1; panX = 0; panY = 0; applyTransform(); }
       function getDist(t) { if (t.length < 2) return 0; const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
 
-      bookArea.addEventListener("touchstart", (e) => {
-        if (!bookReady) return;
-        const t = e.touches;
-        if (t.length === 1 && !pinching && !panning) {
-          const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
-          if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-            resetZoomPan(); e.preventDefault(); if (tapTimer) clearTimeout(tapTimer); lastTap = 0; return;
-          } else { lastTap = now; lastTapX = tx; lastTapY = ty; if (tapTimer) clearTimeout(tapTimer); tapTimer = setTimeout(() => { lastTap = 0; }, 300); }
-        }
-        if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; initPanX = panX; initPanY = panY; e.preventDefault(); }
-        else if (t.length === 1) {
-          if (zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
-          else { swipeStart = t[0].clientX; swipeActive = true; }
-        }
-      });
-      bookArea.addEventListener("touchmove", (e) => {
-        if (!bookReady) return;
-        const t = e.touches;
-        if (pinching && t.length === 2) {
-          const newDist = getDist(t);
-          if (pinchDist > 0) {
-            let s = newDist / pinchDist;
-            let newZ = initZoom * s;
-            newZ = Math.min(4.0, Math.max(1.0, newZ));
-            if (newZ !== zoom) { zoom = newZ; panX = initPanX; panY = initPanY; applyTransform(); }
+      if (bookArea) {
+        bookArea.addEventListener("touchstart", (e) => {
+          if (!bookReady) return;
+          const t = e.touches;
+          if (t.length === 1 && !pinching && !panning) {
+            const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
+            if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+              resetZoomPan(); e.preventDefault(); if (tapTimer) clearTimeout(tapTimer); lastTap = 0; return;
+            } else { lastTap = now; lastTapX = tx; lastTapY = ty; if (tapTimer) clearTimeout(tapTimer); tapTimer = setTimeout(() => { lastTap = 0; }, 300); }
           }
-          e.preventDefault();
-        } else if (panning && t.length === 1) {
-          const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY;
-          if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-            panX = lastPanX + dx; panY = lastPanY + dy;
-            const rect = bookArea.getBoundingClientRect(), flipRect = document.getElementById("flipbook").getBoundingClientRect();
-            const sw = flipRect.width * zoom, sh = flipRect.height * zoom;
-            const maxX = Math.max(0, (sw - rect.width) / 2), maxY = Math.max(0, (sh - rect.height) / 2);
-            panX = Math.min(maxX, Math.max(-maxX, panX)); panY = Math.min(maxY, Math.max(-maxY, panY));
-            applyTransform();
+          if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; initPanX = panX; initPanY = panY; e.preventDefault(); }
+          else if (t.length === 1) {
+            if (zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
+            else { swipeStart = t[0].clientX; swipeActive = true; }
           }
-          e.preventDefault();
-        } else if (swipeActive && t.length === 1 && zoom <= 1.02) {
-          const dx = t[0].clientX - swipeStart;
-          if (Math.abs(dx) > 20) e.preventDefault();
-        }
-      });
-      bookArea.addEventListener("touchend", (e) => {
-        if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
-          const ch = e.changedTouches[0];
-          if (ch && swipeStart !== 0) {
-            const dx = ch.clientX - swipeStart;
-            if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
+        });
+        bookArea.addEventListener("touchmove", (e) => {
+          if (!bookReady) return;
+          const t = e.touches;
+          if (pinching && t.length === 2) {
+            const newDist = getDist(t);
+            if (pinchDist > 0) {
+              let s = newDist / pinchDist;
+              let newZ = initZoom * s;
+              newZ = Math.min(4.0, Math.max(1.0, newZ));
+              if (newZ !== zoom) { zoom = newZ; panX = initPanX; panY = initPanY; applyTransform(); }
+            }
+            e.preventDefault();
+          } else if (panning && t.length === 1) {
+            const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY;
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+              panX = lastPanX + dx; panY = lastPanY + dy;
+              const rect = bookArea.getBoundingClientRect(), flipRect = document.getElementById("flipbook").getBoundingClientRect();
+              const sw = flipRect.width * zoom, sh = flipRect.height * zoom;
+              const maxX = Math.max(0, (sw - rect.width) / 2), maxY = Math.max(0, (sh - rect.height) / 2);
+              panX = Math.min(maxX, Math.max(-maxX, panX)); panY = Math.min(maxY, Math.max(-maxY, panY));
+              applyTransform();
+            }
+            e.preventDefault();
+          } else if (swipeActive && t.length === 1 && zoom <= 1.02) {
+            const dx = t[0].clientX - swipeStart;
+            if (Math.abs(dx) > 20) e.preventDefault();
           }
-        }
-        pinching = false; panning = false; swipeActive = false; pinchDist = 0;
-      });
+        });
+        bookArea.addEventListener("touchend", (e) => {
+          if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
+            const ch = e.changedTouches[0];
+            if (ch && swipeStart !== 0) {
+              const dx = ch.clientX - swipeStart;
+              if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
+            }
+          }
+          pinching = false; panning = false; swipeActive = false; pinchDist = 0;
+        });
+      }
 
+      // Buttons
       document.getElementById("zoomInBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.min(4.0, zoom + 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("zoomOutBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.max(1.0, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
       document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
 
+      // PDF Export
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = "📄 Preparing...";
