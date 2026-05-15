@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK Catalog | Digital Flipbook</title>
+  <title>SLOCK Catalog | Digital Flipbook E-Book</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -254,7 +254,7 @@
       <circle cx="50" cy="50" r="8" stroke="#38bdf8" stroke-width="2" fill="none"/>
     </svg>
   </div>
-  <div class="loader-text" id="loaderMsg">Loading SLOCK Catalog...</div>
+  <div class="loader-text" id="loaderMsg">Looking for SLOCK Catalog PDF...</div>
   <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
 </div>
 
@@ -272,6 +272,7 @@
     let pageImages = [];
     let flipbookReady = false;
     let flipbookInitialized = false;
+    let originalPDFBlob = null; // Store the original PDF for download
     
     // DOM Elements
     const $flipbook = $("#flipbook");
@@ -344,7 +345,7 @@
       const rect = bookArea.getBoundingClientRect();
       let maxW = rect.width * 0.92;
       let maxH = rect.height * 0.92;
-      const ratio = 0.707; // A4 portrait ratio
+      const ratio = 0.707;
       let width = maxW;
       let height = width / ratio;
       if (height > maxH) {
@@ -360,7 +361,6 @@
       }
     }
     
-    // Destroy existing flipbook
     function destroyFlipbook() {
       if (flipbookInitialized && $flipbook.turn("is")) {
         try { $flipbook.turn("destroy"); } catch(e) {}
@@ -371,14 +371,12 @@
       setControlsEnabled(false);
     }
     
-    // Initialize flipbook with rendered pages
     function initFlipbook() {
       if (flipbookInitialized) {
         try { $flipbook.turn("destroy"); } catch(e) {}
         $flipbook.empty();
       }
       
-      // Add all pages as canvas elements
       for (let i = 0; i < pageImages.length; i++) {
         const $page = $("<div class='page'></div>");
         if (pageImages[i]) {
@@ -414,7 +412,6 @@
       pdfStatus.style.borderColor = "#10b981";
       pdfStatus.style.color = "#10b981";
       
-      // Handle window resize
       $(window).off('resize.flipbook').on('resize.flipbook', () => {
         if ($flipbook.turn("is")) {
           setTimeout(() => {
@@ -426,18 +423,18 @@
       });
     }
     
-    // Extract and render PDF pages to canvases
-    async function extractPDFToImages(pdfArrayBuffer) {
+    async function extractPDFToImages(pdfArrayBuffer, pdfBlob) {
       try {
         const loadingTask = pdfjsLib.getDocument({ data: pdfArrayBuffer, useSystemFonts: true });
         const pdf = await loadingTask.promise;
         pdfDocument = pdf;
         totalPages = pdf.numPages;
+        originalPDFBlob = pdfBlob; // Store for download
         
         updateProgress(10, `Found ${totalPages} pages. Rendering...`);
         
         const canvases = [];
-        const scale = 2.0; // Good quality for flipbook
+        const scale = 2.0;
         
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
           const percent = 10 + Math.floor((pageNum / totalPages) * 85);
@@ -460,9 +457,7 @@
           }).promise;
           
           canvases.push(canvas);
-          
-          // Small delay for responsiveness
-          await new Promise(r => setTimeout(r, 10));
+          await new Promise(r => setTimeout(r, 5));
         }
         
         pageImages = canvases;
@@ -483,26 +478,25 @@
           <div style="font-size:3rem; margin-bottom:20px;">📄</div>
           <div style="font-size:1rem; margin-bottom:10px;">Could not load "Slock Catalog.pdf"</div>
           <div style="font-size:0.85rem;">Make sure the file exists in the same folder as this HTML file</div>
+          <div style="font-size:0.75rem; margin-top:15px;">Try naming it exactly: Slock Catalog.pdf</div>
         </div>`);
       }
     }
     
-    // Load PDF from local folder
     async function loadLocalPDF() {
       showLoader(true, "Looking for SLOCK Catalog...");
       updateProgress(5, "Searching for PDF file");
       
-      // Try different filename variations
       const fileNames = [
         "Slock Catalog.pdf",
         "Slock_Catalog.pdf",
         "SLOCK Catalog.pdf",
         "slock-catalog.pdf",
-        "SlockCatalog.pdf",
-        "SLOCK.pdf"
+        "SlockCatalog.pdf"
       ];
       
-      let pdfData = null;
+      let pdfArrayBuffer = null;
+      let pdfBlob = null;
       let foundFile = "";
       
       for (const name of fileNames) {
@@ -510,7 +504,8 @@
           updateProgress(8, `Checking: ${name}`);
           const response = await fetch(name);
           if (response.ok) {
-            pdfData = await response.arrayBuffer();
+            pdfBlob = await response.blob();
+            pdfArrayBuffer = await pdfBlob.arrayBuffer();
             foundFile = name;
             break;
           }
@@ -519,7 +514,7 @@
         }
       }
       
-      if (!pdfData) {
+      if (!pdfArrayBuffer) {
         showLoader(false);
         pdfStatus.innerHTML = "⚠️ PDF not found";
         pdfStatus.style.borderColor = "#f59e0b";
@@ -527,15 +522,15 @@
         $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px;">
           <div style="font-size:3rem; margin-bottom:20px;">📕</div>
           <div style="font-size:1.1rem; margin-bottom:10px;">Slock Catalog.pdf not found</div>
-          <div style="font-size:0.85rem;">Please place "Slock Catalog.pdf" in the same folder</div>
+          <div style="font-size:0.85rem;">Please place "Slock Catalog.pdf" in the same folder as this HTML file</div>
           <div style="font-size:0.75rem; margin-top:15px;">Supported names: Slock Catalog.pdf, Slock_Catalog.pdf, SLOCK.pdf</div>
         </div>`);
         return;
       }
       
       updateProgress(10, `Found ${foundFile}, extracting pages...`);
-      pdfStatus.innerHTML = `📄 Extracting from ${foundFile}`;
-      await extractPDFToImages(pdfData);
+      pdfStatus.innerHTML = `📄 Processing ${foundFile}`;
+      await extractPDFToImages(pdfArrayBuffer, pdfBlob);
     }
     
     // Zoom & Pan functionality
@@ -575,7 +570,6 @@
       return Math.hypot(dx, dy);
     }
     
-    // Touch events
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
       
@@ -679,7 +673,6 @@
       pinchStart = 0;
     });
     
-    // Button event listeners
     zoomInBtn.addEventListener("click", () => {
       if (flipbookReady) {
         currentZoom = Math.min(4.0, currentZoom + 0.2);
@@ -699,79 +692,38 @@
     prevBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("previous"); });
     nextBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("next"); });
     
-    // Download original PDF directly (fast, no re-rendering)
-    downloadBtn.addEventListener("click", async () => {
-      if (!pdfDocument) {
-        alert("No PDF loaded yet. Please wait for the catalog to load.");
+    // ONLY download when button is clicked - NO AUTO DOWNLOAD
+    downloadBtn.addEventListener("click", () => {
+      if (!originalPDFBlob) {
+        alert("PDF not loaded yet. Please wait for the catalog to finish loading.");
         return;
       }
       
-      const btn = downloadBtn;
-      const originalText = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = "📥 Downloading...";
+      // Create download link and trigger download
+      const url = URL.createObjectURL(originalPDFBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Slock_Catalog.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      try {
-        // Fetch the original PDF file again for download
-        const fileNames = ["Slock Catalog.pdf", "Slock_Catalog.pdf", "SLOCK Catalog.pdf", "slock-catalog.pdf"];
-        let pdfBlob = null;
-        
-        for (const name of fileNames) {
-          try {
-            const response = await fetch(name);
-            if (response.ok) {
-              pdfBlob = await response.blob();
-              break;
-            }
-          } catch (err) { continue; }
-        }
-        
-        if (pdfBlob) {
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'Slock_Catalog.pdf';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          btn.innerHTML = "✅ Downloaded!";
-        } else {
-          // Fallback: generate PDF from rendered canvases
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-          const pdfW = pdf.internal.pageSize.getWidth();
-          const pdfH = pdf.internal.pageSize.getHeight();
-          
-          for (let i = 0; i < pageImages.length; i++) {
-            btn.innerHTML = `📥 ${i+1}/${pageImages.length}`;
-            const canvas = pageImages[i];
-            if (canvas) {
-              const imgData = canvas.toDataURL("image/jpeg", 0.92);
-              if (i > 0) pdf.addPage();
-              pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
-            }
-          }
-          pdf.save("Slock_Catalog.pdf");
-          btn.innerHTML = "✅ Saved!";
-        }
-        
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-      } catch (err) {
-        alert("Download failed: " + err.message);
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-      }
+      // Visual feedback
+      const originalText = downloadBtn.innerHTML;
+      downloadBtn.innerHTML = "✅ Downloaded!";
+      setTimeout(() => {
+        downloadBtn.innerHTML = originalText;
+      }, 1500);
     });
     
-    // Keyboard navigation
     document.addEventListener("keydown", (e) => {
       if (!flipbookReady) return;
       if (e.key === "ArrowLeft") $flipbook.turn("previous");
       if (e.key === "ArrowRight") $flipbook.turn("next");
     });
     
-    // Start loading the catalog
+    // Start loading the catalog - NO DOWNLOAD, just loading and displaying
     loadLocalPDF();
   })();
 </script>
