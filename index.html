@@ -343,7 +343,7 @@
             <div class="zoom-container" id="zoomContainer">
                 <div id="flipbook"></div>
             </div>
-            <div class="zoom-hint">⚡ Instant · Swipe to flip · Pinch to zoom</div>
+            <div class="zoom-hint">⚡ Instant · Click / Swipe to flip · Scroll to zoom</div>
         </div>
     </div>
 
@@ -359,27 +359,25 @@
         <div class="loader-text" id="progressPercent" style="font-size:0.75rem; margin-top:6px;">0%</div>
     </div>
 
-    <audio id="flipSound" preload="none" crossorigin="anonymous">
-        <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
-    </audio>
+    <!-- No external audio file needed – sound is generated via Web Audio API -->
 
     <script>
         (function() {
             // ------------------------------------------------------------
-            // ⚡ INSTANT LOAD STRATEGY:
-            // 1. <link rel="preload"> in <head> starts downloading pages 1‑6 immediately
-            // 2. Loader stays visible until at least 2 pages are decoded & ready
-            // 3. Flipbook initializes the moment the first spread is viewable
-            // 4. All remaining pages stream in the background
-            // 5. PDF button links directly to the static file
+            // ⚡ INSTANT LOAD + PROGRAMMATIC AUDIO
+            // 1. Preload first 6 pages via <link> – they download immediately.
+            // 2. Show loader until at least 2 pages are decoded → book appears.
+            // 3. After book appears, aggressively load ALL remaining pages in background.
+            // 4. Mouse & touch: click/flip, scroll zoom, drag to pan.
+            // 5. Page‑flip sound created with Web Audio API – reliable & instant.
             // ------------------------------------------------------------
             const TOTAL_PAGES = 36;
             const IMAGE_FOLDER = "images/";
             const IMAGE_EXT = "webp";
 
-            const MIN_PAGES_FOR_TURN = 2; // first spread (page 1 + page 2)
-            const PRELOAD_RADIUS = 3;
-            const MAX_CONCURRENT_PRELOADS = 8; // aggressive parallel loading
+            const MIN_PAGES_FOR_TURN = 2;
+            const PRELOAD_RADIUS = 18;          // effectively loads all pages near the current one (since we want all)
+            const MAX_CONCURRENT_PRELOADS = 12;  // aggressive parallel loads
 
             let pagesLoadedStatus = new Array(TOTAL_PAGES + 1).fill(false);
             let pageElements = [];
@@ -394,31 +392,59 @@
             const progressBar = document.getElementById("loadProgressBar");
             const progressPercentSpan = document.getElementById("progressPercent");
 
-            // --- Audio ---
-            const flipSound = document.getElementById("flipSound");
-            let audioUnlocked = false;
+            // ========== PROGRAMMATIC PAGE FLIP SOUND (Web Audio API) ==========
+            let audioCtx = null;
+            function playFlipSound() {
+                try {
+                    if (!audioCtx) {
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    // Resume context if suspended (needed after user gesture)
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
 
-            function unlockAudio() {
-                if (audioUnlocked) return;
-                if (flipSound) {
-                    flipSound.play().then(() => {
-                        flipSound.pause();
-                        flipSound.currentTime = 0;
-                        audioUnlocked = true;
-                    }).catch(() => {});
+                    const now = audioCtx.currentTime;
+                    const duration = 0.08; // very short, crisp sound
+
+                    // Create noise buffer
+                    const sampleRate = audioCtx.sampleRate;
+                    const length = Math.ceil(sampleRate * duration);
+                    const buffer = audioCtx.createBuffer(1, length, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < length; i++) {
+                        data[i] = (Math.random() * 2 - 1) * 0.4; // white noise
+                    }
+
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    // Shape the noise with a gain envelope (click-like)
+                    const gainNode = audioCtx.createGain();
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                    noise.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+
+                    noise.start(now);
+                    noise.stop(now + duration);
+                } catch (e) {
+                    // Silently fail if AudioContext is not supported
                 }
-                audioUnlocked = true;
+            }
+
+            // Unlock AudioContext on first user interaction
+            function unlockAudio() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
             }
             document.body.addEventListener("touchstart", unlockAudio, { once: true });
-            document.body.addEventListener("click", unlockAudio, { once: true });
-
-            function playFlipSound() {
-                if (!flipSound || !audioUnlocked) return;
-                flipSound.pause();
-                flipSound.currentTime = 0;
-                flipSound.volume = 0.55;
-                flipSound.play().catch(() => {});
-            }
+            document.body.addEventListener("mousedown", unlockAudio, { once: true });
 
             // --- Progress ---
             function updateLoadProgress() {
@@ -432,7 +458,7 @@
                 }
             }
 
-            // --- Fast image loader (uses preloaded cache when available) ---
+            // --- Fast image loader ---
             function loadImageForPage(pageNum, imgElement, placeholderDiv) {
                 return new Promise((resolve) => {
                     if (pagesLoadedStatus[pageNum]) {
@@ -441,8 +467,6 @@
                     }
 
                     const imgSrc = `${IMAGE_FOLDER}page${pageNum}.${IMAGE_EXT}`;
-
-                    // Try to pick up the image from the browser cache (preload links)
                     const img = new Image();
                     img.decoding = "async";
                     img.onload = () => {
@@ -457,7 +481,6 @@
                         resolve(true);
                     };
                     img.onerror = () => {
-                        // Graceful fallback
                         imgElement.alt = `Page ${pageNum} missing`;
                         const parent = imgElement.parentNode;
                         if (parent && !parent.querySelector(".error-fallback")) {
@@ -492,12 +515,11 @@
                 return $page;
             }
 
-            // Build all page containers
             for (let i = 1; i <= TOTAL_PAGES; i++) {
                 $flipbook.append(createPageElement(i));
             }
 
-            // --- Smart background preloader ---
+            // --- Smart background preloader (aggressively loads all pages) ---
             let currentPreloadCenter = 1;
             let preloadScheduled = false;
 
@@ -542,10 +564,8 @@
                 }, 40);
             }
 
-            // --- Start loading critical pages ---
             function startInitialLoading() {
-                // Pages 1-6 are already being preloaded by the <link> tags.
-                // We just need to wire them up to the DOM elements.
+                // First 6 pages already preloaded via <link>, but we wire them up
                 const criticalPages = [1, 2, 3, 4, 5, 6];
                 for (const p of criticalPages) {
                     const elem = pageElements[p];
@@ -553,8 +573,8 @@
                         loadImageForPage(p, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
                     }
                 }
-                // Also kick off pages 7-12 in background
-                for (let i = 7; i <= Math.min(12, TOTAL_PAGES); i++) {
+                // Immediately start loading the rest in background (pages 7-36)
+                for (let i = 7; i <= TOTAL_PAGES; i++) {
                     const elem = pageElements[i];
                     if (elem && !pagesLoadedStatus[i]) {
                         loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
@@ -563,7 +583,6 @@
                 scheduleSmartPreload(1);
             }
 
-            // --- Book sizing ---
             function getOptimalBookSize() {
                 const areaRect = bookArea.getBoundingClientRect();
                 let maxWidth = areaRect.width * 0.92;
@@ -583,7 +602,6 @@
                 if (bookReady) scheduleSmartPreload(page);
             }
 
-            // --- Initialize flipbook ---
             function initFlipbookEarly() {
                 if (bookReady) return;
                 const { width, height } = getOptimalBookSize();
@@ -611,17 +629,19 @@
                 updateCounter(1);
                 resetZoomAndPan();
 
-                // Hide loader
                 if (torxLoader && torxLoader.style.display !== "none") {
                     torxLoader.style.opacity = "0";
                     setTimeout(() => { if (torxLoader) torxLoader.style.display = "none"; }, 350);
                 }
 
-                // Load remaining pages in background
-                for (let i = 13; i <= TOTAL_PAGES; i++) {
-                    const elem = pageElements[i];
-                    if (elem && !pagesLoadedStatus[i]) {
-                        loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
+                // All remaining pages are already being loaded by startInitialLoading,
+                // but we can force another pass just in case
+                for (let i = 1; i <= TOTAL_PAGES; i++) {
+                    if (!pagesLoadedStatus[i]) {
+                        const elem = pageElements[i];
+                        if (elem && !elem.loaded) {
+                            loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
+                        }
                     }
                 }
 
@@ -636,7 +656,7 @@
                 });
             }
 
-            // --- Zoom & Pan ---
+            // --- Zoom & Pan state ---
             let currentZoom = 1,
                 currentPanX = 0,
                 currentPanY = 0;
@@ -656,6 +676,13 @@
                 tapTimeout = null;
             let swipeStartX = 0,
                 swipeActive = false;
+
+            let mouseIsDown = false,
+                mouseStartX = 0,
+                mouseStartY = 0,
+                mouseMoved = false,
+                mousePanX = 0,
+                mousePanY = 0;
 
             function applyTransform() {
                 zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
@@ -685,6 +712,18 @@
                 return Math.hypot(dx, dy);
             }
 
+            function clampPan() {
+                const containerRect = bookArea.getBoundingClientRect();
+                const flipRect = document.getElementById("flipbook").getBoundingClientRect();
+                const scaledW = flipRect.width * currentZoom;
+                const scaledH = flipRect.height * currentZoom;
+                const maxPanX = Math.max(0, (scaledW - containerRect.width) / 2);
+                const maxPanY = Math.max(0, (scaledH - containerRect.height) / 2);
+                currentPanX = Math.min(maxPanX, Math.max(-maxPanX, currentPanX));
+                currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
+            }
+
+            // ------- TOUCH EVENTS -------
             bookArea.addEventListener("touchstart", (e) => {
                 const touches = e.touches;
                 if (touches.length === 1 && !isPinching && !isPanning) {
@@ -748,14 +787,7 @@
                     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                         currentPanX = lastPanX + dx;
                         currentPanY = lastPanY + dy;
-                        const containerRect = bookArea.getBoundingClientRect();
-                        const flipRect = document.getElementById("flipbook").getBoundingClientRect();
-                        const scaledW = flipRect.width * currentZoom;
-                        const scaledH = flipRect.height * currentZoom;
-                        const maxPanX = Math.max(0, (scaledW - containerRect.width) / 2);
-                        const maxPanY = Math.max(0, (scaledH - containerRect.height) / 2);
-                        currentPanX = Math.min(maxPanX, Math.max(-maxPanX, currentPanX));
-                        currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
+                        clampPan();
                         applyTransform();
                     }
                     e.preventDefault();
@@ -781,31 +813,94 @@
                 pinchStartDistance = 0;
             });
 
+            // ------- MOUSE EVENTS -------
+            bookArea.addEventListener("wheel", (e) => {
+                if (!bookReady) return;
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                let newZoom = currentZoom + delta;
+                newZoom = Math.min(4.0, Math.max(1.0, newZoom));
+                if (newZoom !== currentZoom) {
+                    const rect = bookArea.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const scale = newZoom / currentZoom;
+                    currentPanX = mouseX - (mouseX - currentPanX - centerX) * scale - centerX;
+                    currentPanY = mouseY - (mouseY - currentPanY - centerY) * scale - centerY;
+                    currentZoom = newZoom;
+                    clampPan();
+                    applyTransform();
+                }
+            }, { passive: false });
+
+            bookArea.addEventListener("mousedown", (e) => {
+                if (!bookReady) return;
+                if (e.button === 2) return; // ignore right‑click
+                mouseIsDown = true;
+                mouseStartX = e.clientX;
+                mouseStartY = e.clientY;
+                mouseMoved = false;
+                if (currentZoom > 1.02) {
+                    mousePanX = currentPanX;
+                    mousePanY = currentPanY;
+                }
+            });
+
+            window.addEventListener("mousemove", (e) => {
+                if (!mouseIsDown || !bookReady) return;
+                const dx = e.clientX - mouseStartX;
+                const dy = e.clientY - mouseStartY;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                    mouseMoved = true;
+                }
+                if (mouseMoved && currentZoom > 1.02) {
+                    currentPanX = mousePanX + dx;
+                    currentPanY = mousePanY + dy;
+                    clampPan();
+                    applyTransform();
+                }
+            });
+
+            window.addEventListener("mouseup", (e) => {
+                if (!mouseIsDown || !bookReady) return;
+                mouseIsDown = false;
+                if (!mouseMoved && currentZoom <= 1.02) {
+                    const rect = bookArea.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    if (clickX < rect.width * 0.5) {
+                        $flipbook.turn("previous");
+                    } else {
+                        $flipbook.turn("next");
+                    }
+                }
+                mouseMoved = false;
+            });
+
+            bookArea.addEventListener("contextmenu", (e) => e.preventDefault());
+            bookArea.addEventListener("dblclick", () => { if (bookReady) resetZoomAndPan(); });
+
             // --- Button handlers ---
             document.getElementById("zoomInBtn").addEventListener("click", () => {
                 if (!bookReady) return;
                 currentZoom = Math.min(4.0, currentZoom + 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0;
-                    currentPanY = 0; }
+                if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
                 applyTransform();
             });
             document.getElementById("zoomOutBtn").addEventListener("click", () => {
                 if (!bookReady) return;
                 currentZoom = Math.max(1.0, currentZoom - 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0;
-                    currentPanY = 0; }
+                if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
                 applyTransform();
             });
-            document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $flipbook.turn(
-                    "previous"); });
+            document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $flipbook.turn("previous"); });
             document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $flipbook.turn("next"); });
 
-            // Direct PDF download
             document.getElementById("downloadPDF").addEventListener("click", () => {
-                const fileName = "Slock Catalog.pdf";
                 const link = document.createElement("a");
-                link.href = encodeURI(fileName);
-                link.download = fileName;
+                link.href = "Slock Catalog.pdf";
+                link.download = "Slock Catalog.pdf";
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -820,7 +915,6 @@
             // --- Kickstart ---
             startInitialLoading();
 
-            // Safety fallback (6 s)
             setTimeout(() => {
                 if (torxLoader && torxLoader.style.display !== "none") {
                     if (!bookReady) initFlipbookEarly();
