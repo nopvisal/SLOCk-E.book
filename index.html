@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK Catalog | Digital Flipbook E-Book</title>
+  <title>SLOCK Catalog | Digital Flipbook</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -228,7 +228,7 @@
   <div class="topbar">
     <div class="left-tools">
       <div class="brand">📖 SLOCK</div>
-      <div class="pdf-status" id="pdfStatus">Auto-Loading...</div>
+      <div class="pdf-status" id="pdfStatus">Loading Catalog...</div>
     </div>
     <div class="right-tools">
       <button class="control-btn" id="prevBtn" disabled>◀ Prev</button>
@@ -254,7 +254,7 @@
       <circle cx="50" cy="50" r="8" stroke="#38bdf8" stroke-width="2" fill="none"/>
     </svg>
   </div>
-  <div class="loader-text" id="loaderMsg">Looking for SLOCK Catalog PDF...</div>
+  <div class="loader-text" id="loaderMsg">Loading SLOCK Catalog...</div>
   <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
 </div>
 
@@ -272,7 +272,7 @@
     let pageImages = [];
     let flipbookReady = false;
     let flipbookInitialized = false;
-    let originalPDFBlob = null; // Store the original PDF for download
+    let originalPDFBlob = null;
     
     // DOM Elements
     const $flipbook = $("#flipbook");
@@ -310,13 +310,11 @@
     
     function playFlip() {
       if (!flipSound || !audioEnabled) return;
-      flipSound.pause();
       flipSound.currentTime = 0;
-      flipSound.volume = 0.5;
+      flipSound.volume = 0.4;
       flipSound.play().catch(() => {});
     }
     
-    // UI Helpers
     function setControlsEnabled(enabled) {
       prevBtn.disabled = !enabled;
       nextBtn.disabled = !enabled;
@@ -396,7 +394,7 @@
         acceleration: true,
         gradients: true,
         elevation: 50,
-        duration: 500,
+        duration: 400,
         when: {
           turning: () => playFlip(),
           turned: (e, page) => updatePageCounter(page)
@@ -429,15 +427,15 @@
         const pdf = await loadingTask.promise;
         pdfDocument = pdf;
         totalPages = pdf.numPages;
-        originalPDFBlob = pdfBlob; // Store for download
+        originalPDFBlob = pdfBlob;
         
-        updateProgress(10, `Found ${totalPages} pages. Rendering...`);
+        updateProgress(5, `Found ${totalPages} pages. Rendering...`);
         
         const canvases = [];
-        const scale = 2.0;
+        const scale = 1.8; // Balanced for quality and performance
         
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-          const percent = 10 + Math.floor((pageNum / totalPages) * 85);
+          const percent = 5 + Math.floor((pageNum / totalPages) * 90);
           updateProgress(percent, `Rendering page ${pageNum}/${totalPages}...`);
           
           const page = await pdf.getPage(pageNum);
@@ -466,7 +464,7 @@
         setTimeout(() => {
           showLoader(false);
           initFlipbook();
-        }, 300);
+        }, 200);
         
       } catch (error) {
         console.error("PDF extraction error:", error);
@@ -477,44 +475,35 @@
         $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px;">
           <div style="font-size:3rem; margin-bottom:20px;">📄</div>
           <div style="font-size:1rem; margin-bottom:10px;">Could not load "Slock Catalog.pdf"</div>
-          <div style="font-size:0.85rem;">Make sure the file exists in the same folder as this HTML file</div>
-          <div style="font-size:0.75rem; margin-top:15px;">Try naming it exactly: Slock Catalog.pdf</div>
+          <div style="font-size:0.85rem;">Make sure the file exists in the same folder</div>
         </div>`);
       }
     }
     
     async function loadLocalPDF() {
       showLoader(true, "Looking for SLOCK Catalog...");
-      updateProgress(5, "Searching for PDF file");
+      updateProgress(2, "Searching for PDF file");
       
-      const fileNames = [
-        "Slock Catalog.pdf",
-        "Slock_Catalog.pdf",
-        "SLOCK Catalog.pdf",
-        "slock-catalog.pdf",
-        "SlockCatalog.pdf"
-      ];
+      // Try exact filename first
+      const fileName = "Slock Catalog.pdf";
       
-      let pdfArrayBuffer = null;
-      let pdfBlob = null;
-      let foundFile = "";
-      
-      for (const name of fileNames) {
-        try {
-          updateProgress(8, `Checking: ${name}`);
-          const response = await fetch(name);
-          if (response.ok) {
-            pdfBlob = await response.blob();
-            pdfArrayBuffer = await pdfBlob.arrayBuffer();
-            foundFile = name;
-            break;
-          }
-        } catch (err) {
-          continue;
+      try {
+        updateProgress(5, `Loading ${fileName}...`);
+        const response = await fetch(fileName);
+        
+        if (!response.ok) {
+          throw new Error("PDF not found");
         }
-      }
-      
-      if (!pdfArrayBuffer) {
+        
+        const pdfBlob = await response.blob();
+        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+        
+        updateProgress(8, `Found ${fileName}, extracting pages...`);
+        pdfStatus.innerHTML = `📄 Processing ${fileName}`;
+        await extractPDFToImages(pdfArrayBuffer, pdfBlob);
+        
+      } catch (error) {
+        console.error("Error loading PDF:", error);
         showLoader(false);
         pdfStatus.innerHTML = "⚠️ PDF not found";
         pdfStatus.style.borderColor = "#f59e0b";
@@ -522,15 +511,9 @@
         $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px;">
           <div style="font-size:3rem; margin-bottom:20px;">📕</div>
           <div style="font-size:1.1rem; margin-bottom:10px;">Slock Catalog.pdf not found</div>
-          <div style="font-size:0.85rem;">Please place "Slock Catalog.pdf" in the same folder as this HTML file</div>
-          <div style="font-size:0.75rem; margin-top:15px;">Supported names: Slock Catalog.pdf, Slock_Catalog.pdf, SLOCK.pdf</div>
+          <div style="font-size:0.85rem;">Please make sure "Slock Catalog.pdf" is in the same folder as this HTML file</div>
         </div>`);
-        return;
       }
-      
-      updateProgress(10, `Found ${foundFile}, extracting pages...`);
-      pdfStatus.innerHTML = `📄 Processing ${foundFile}`;
-      await extractPDFToImages(pdfArrayBuffer, pdfBlob);
     }
     
     // Zoom & Pan functionality
@@ -692,14 +675,13 @@
     prevBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("previous"); });
     nextBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("next"); });
     
-    // ONLY download when button is clicked - NO AUTO DOWNLOAD
+    // Download PDF only when button is clicked
     downloadBtn.addEventListener("click", () => {
       if (!originalPDFBlob) {
         alert("PDF not loaded yet. Please wait for the catalog to finish loading.");
         return;
       }
       
-      // Create download link and trigger download
       const url = URL.createObjectURL(originalPDFBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -709,7 +691,6 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      // Visual feedback
       const originalText = downloadBtn.innerHTML;
       downloadBtn.innerHTML = "✅ Downloaded!";
       setTimeout(() => {
@@ -723,7 +704,7 @@
       if (e.key === "ArrowRight") $flipbook.turn("next");
     });
     
-    // Start loading the catalog - NO DOWNLOAD, just loading and displaying
+    // Start loading
     loadLocalPDF();
   })();
 </script>
