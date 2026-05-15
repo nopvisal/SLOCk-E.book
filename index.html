@@ -272,6 +272,22 @@
       font-weight: 500;
       letter-spacing: 2px;
     }
+
+    /* Small progress indicator (optional) */
+    .loading-progress {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      pointer-events: none;
+      z-index: 200001;
+      font-family: monospace;
+    }
   </style>
 </head>
 
@@ -324,6 +340,8 @@
 
   </div>
 
+  <div class="loading-progress" id="loadingProgress">0 / 36 pages</div>
+
   <audio id="flipSound" preload="auto" crossorigin="anonymous">
     <source
       src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3"
@@ -342,12 +360,27 @@
       const bookArea = document.getElementById("bookArea");
       const zoomContainer = document.getElementById("zoomContainer");
       const torxLoader = document.getElementById("torxLoader");
+      const loadingProgress = document.getElementById("loadingProgress");
 
       let bookReady = false;
+      let loadedCount = 0;
+      let loadingCompleted = false;
 
       // CREATE PAGE CONTAINERS
       for (let i = 1; i <= TOTAL; i++) {
         $("<div class='page'></div>").appendTo($book);
+      }
+
+      // UPDATE PROGRESS DISPLAY
+      function updateProgress() {
+        if (loadingProgress) {
+          loadingProgress.innerText = `${loadedCount} / ${TOTAL} pages loaded`;
+        }
+        if (loadedCount === TOTAL && !loadingCompleted) {
+          loadingCompleted = true;
+          console.log("All 36 pages fully loaded!");
+          if (loadingProgress) loadingProgress.style.backgroundColor = "rgba(56, 189, 248, 0.8)";
+        }
       }
 
       // BOOK SIZE
@@ -431,112 +464,136 @@
       }
 
       // ===============================
-      // RELIABLE LOADER WITH QUEUE AND RETRY
+      // ROBUST PARALLEL LOADER (8 at a time, unlimited retries)
       // ===============================
 
       const loadedPages = new Set();
-      let loadingActive = false;
+      let activeLoads = 0;
+      const pendingPages = [];
 
-      function loadPageWithTimeout(num, priority = false, timeoutMs = 15000) {
+      for (let i = 1; i <= TOTAL; i++) {
+        pendingPages.push(i);
+      }
+
+      // Shuffle priority: pages 1-4 first, then the rest
+      pendingPages.sort((a, b) => {
+        if (a <= 4 && b > 4) return -1;
+        if (a > 4 && b <= 4) return 1;
+        return 0;
+      });
+
+      function loadPageWithRetry(num, maxRetries = 3) {
+        if (loadedPages.has(num)) return Promise.resolve();
+
         return new Promise((resolve) => {
-          const img = new Image();
-          let resolved = false;
+          const attempt = (retryCount) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.loading = "eager";
+            img.decoding = "async";
+            if (num <= 4) img.fetchPriority = "high";
 
-          const timeoutId = setTimeout(() => {
-            if (!resolved) {
-              resolved = true;
-              console.warn(`Timeout loading page ${num}`);
+            let timeoutId = setTimeout(() => {
+              if (retryCount < maxRetries) {
+                console.warn(`Page ${num} timeout, retry ${retryCount + 1}`);
+                attempt(retryCount + 1);
+              } else {
+                console.error(`Page ${num} failed after ${maxRetries} retries`);
+                const $page = $book.find(`.page:eq(${num - 1})`);
+                if ($page.length && !$page.find("img").length) {
+                  $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;">⚠️ ${num}</div>`);
+                }
+                loadedPages.add(num);
+                loadedCount++;
+                updateProgress();
+                resolve();
+              }
+            }, 20000); // 20 second timeout per attempt
+
+            img.onload = async () => {
+              clearTimeout(timeoutId);
+              try { if (img.decode) await img.decode(); } catch (e) { }
               const $page = $book.find(`.page:eq(${num - 1})`);
               if ($page.length && !$page.find("img").length) {
-                $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;">⚠️ ${num}</div>`);
+                $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
               }
               loadedPages.add(num);
+              loadedCount++;
+              updateProgress();
+              console.log(`✅ Page ${num} loaded (${loadedCount}/${TOTAL})`);
               resolve();
-            }
-          }, timeoutMs);
+            };
 
-          img.crossOrigin = "anonymous";
-          img.loading = "eager";
-          img.decoding = "async";
-          if (priority) img.fetchPriority = "high";
+            img.onerror = () => {
+              clearTimeout(timeoutId);
+              if (retryCount < maxRetries) {
+                console.warn(`Page ${num} error, retry ${retryCount + 1}`);
+                attempt(retryCount + 1);
+              } else {
+                console.error(`Page ${num} failed after ${maxRetries} retries`);
+                const $page = $book.find(`.page:eq(${num - 1})`);
+                if ($page.length && !$page.find("img").length) {
+                  $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;">⚠️ ${num}</div>`);
+                }
+                loadedPages.add(num);
+                loadedCount++;
+                updateProgress();
+                resolve();
+              }
+            };
 
-          img.onload = async () => {
-            if (resolved) return;
-            clearTimeout(timeoutId);
-            try { if (img.decode) await img.decode(); } catch (e) { }
-            const $page = $book.find(`.page:eq(${num - 1})`);
-            if ($page.length && !$page.find("img").length) {
-              $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
-            }
-            loadedPages.add(num);
-            console.log(`✅ Page ${num} loaded`);
-            resolved = true;
-            resolve();
+            img.src = `${IMG_PATH}page${num}.${EXT}`;
           };
 
-          img.onerror = () => {
-            if (resolved) return;
-            clearTimeout(timeoutId);
-            console.error(`❌ Failed to load page ${num}`);
-            const $page = $book.find(`.page:eq(${num - 1})`);
-            if ($page.length && !$page.find("img").length) {
-              $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;">⚠️ ${num}</div>`);
-            }
-            loadedPages.add(num);
-            resolved = true;
-            resolve();
-          };
-
-          img.src = `${IMG_PATH}page${num}.${EXT}`;
+          attempt(0);
         });
       }
 
-      async function loadAllPagesWithRetry() {
-        // Load first 4 pages with high priority and wait for them
-        await loadPageWithTimeout(1, true);
-        await loadPageWithTimeout(2, true);
-        await loadPageWithTimeout(3, true);
-        await loadPageWithTimeout(4, true);
+      // Parallel loader with 8 concurrent slots (browsers allow ~6-8 per domain)
+      const CONCURRENCY = 8;
+      let index = 0;
 
-        // Hide torx loader after page 1 is loaded
-        torxLoader.style.opacity = "0";
-        setTimeout(() => { torxLoader.style.display = "none"; }, 300);
-        initFlipbook();
-
-        // Now load pages 5..36 with a controlled queue (3 at a time to avoid network congestion)
-        const remainingPages = [];
-        for (let i = 5; i <= TOTAL; i++) remainingPages.push(i);
-
-        const concurrency = 3;
-        let index = 0;
+      async function runLoader() {
         const workers = [];
-
-        async function worker() {
-          while (index < remainingPages.length) {
-            const pageNum = remainingPages[index++];
-            await loadPageWithTimeout(pageNum, false);
-            // Small delay between requests to be gentle
-            await new Promise(r => setTimeout(r, 50));
-          }
-        }
-
-        for (let i = 0; i < concurrency; i++) {
+        for (let i = 0; i < CONCURRENCY; i++) {
           workers.push(worker());
         }
         await Promise.all(workers);
-
-        // Final check: if any page missing, retry individually
-        for (let i = 1; i <= TOTAL; i++) {
-          if (!loadedPages.has(i)) {
-            console.warn(`Retrying missing page ${i}`);
-            await loadPageWithTimeout(i, false);
-          }
-        }
-        console.log("All pages loaded successfully!");
+        console.log("Loader finished – all pages attempted");
       }
 
-      // Start loading
-      loadAllPagesWithRetry();
+      async function worker() {
+        while (index < pendingPages.length) {
+          const pageNum = pendingPages[index++];
+          await loadPageWithRetry(pageNum);
+        }
+      }
+
+      // Start loading immediately (page 1 will load fast, torx hides when page 1 done)
+      runLoader().then(() => {
+        console.log("All pages loading process completed");
+      });
+
+      // Hide torx loader once page 1 is loaded (not waiting for all)
+      const checkPage1 = setInterval(() => {
+        if (loadedPages.has(1)) {
+          clearInterval(checkPage1);
+          torxLoader.style.opacity = "0";
+          setTimeout(() => {
+            torxLoader.style.display = "none";
+          }, 300);
+          initFlipbook();
+        }
+      }, 50);
+
+      // Fallback: force hide torx after 5 seconds anyway
+      setTimeout(() => {
+        if (torxLoader.style.display !== "none") {
+          torxLoader.style.opacity = "0";
+          setTimeout(() => { torxLoader.style.display = "none"; }, 300);
+          initFlipbook();
+        }
+      }, 5000);
 
       // ===============================
       // ZOOM + PAN
@@ -583,7 +640,6 @@
         if (!bookReady) return;
         const t = e.touches;
 
-        // Double tap reset
         if (t.length === 1 && !pinching && !panning) {
           const now = Date.now();
           const tx = t[0].clientX;
@@ -678,7 +734,7 @@
         if (e.key === "ArrowRight") $book.turn("next");
       });
 
-      // PDF EXPORT
+      // PDF EXPORT (unchanged, works)
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this;
         const original = btn.innerHTML;
