@@ -5,10 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK E-BOOK – Guaranteed Full Load</title>
-  <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <title>SLOCK E-BOOK – Reliable Loader</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -198,6 +195,7 @@
       z-index: 20;
     }
 
+    /* Simple loader overlay */
     .torx-loader {
       position: fixed;
       inset: 0;
@@ -265,6 +263,15 @@
       color: #94a3b8;
       font-size: 0.9rem;
       font-family: monospace;
+      margin-top: 10px;
+    }
+
+    .error-message {
+      color: #f87171;
+      font-size: 0.8rem;
+      margin-top: 20px;
+      text-align: center;
+      max-width: 80%;
     }
   </style>
 </head>
@@ -300,6 +307,7 @@
       </svg></div>
     <div class="loader-text">LOADING CATALOG</div>
     <div class="loader-progress" id="loadProgress">0 / 36 pages</div>
+    <div class="error-message" id="errorMsg"></div>
   </div>
 
   <audio id="flipSound" preload="auto" crossorigin="anonymous">
@@ -308,119 +316,167 @@
   </audio>
 
   <script>
-    (() => {
+    (function () {
       const TOTAL = 36;
       const IMG_PATH = "images/";
       const EXT = "webp";
 
-      // Preload all images into an array
-      const images = new Array(TOTAL);
-      let loadedCount = 0;
-      let allLoaded = false;
-
+      // DOM elements
       const $book = $("#flipbook");
       const bookArea = document.getElementById("bookArea");
       const zoomContainer = document.getElementById("zoomContainer");
       const torxLoader = document.getElementById("torxLoader");
       const loadProgressSpan = document.getElementById("loadProgress");
+      const errorMsgSpan = document.getElementById("errorMsg");
 
-      function updateLoadProgress() {
+      let bookReady = false;
+      let currentPageLoading = 1;
+      let loadedCount = 0;
+      let loadingActive = false;
+      let loadErrors = [];
+
+      // Create empty page containers (will be filled sequentially)
+      for (let i = 1; i <= TOTAL; i++) {
+        const $page = $("<div class='page'></div>");
+        $page.css("background", "#111827");
+        $book.append($page);
+      }
+
+      function updateProgressUI() {
         if (loadProgressSpan) {
           loadProgressSpan.innerText = `${loadedCount} / ${TOTAL} pages`;
         }
       }
 
-      // Load a single image with retries
-      function loadImage(num, maxRetries = 3) {
-        return new Promise((resolve) => {
-          let attempt = 0;
-          function tryLoad() {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.loading = "eager";
-            if (num <= 4) img.fetchPriority = "high";
-            const timeoutId = setTimeout(() => {
-              if (attempt < maxRetries - 1) {
-                attempt++;
-                console.warn(`Retry ${attempt + 1} for page ${num}`);
-                tryLoad();
-              } else {
-                console.error(`Failed to load page ${num} after ${maxRetries} attempts`);
-                images[num - 1] = null; // mark as failed
-                loadedCount++;
-                updateLoadProgress();
-                resolve();
-              }
-            }, 30000); // 30s timeout
+      function showError(msg) {
+        if (errorMsgSpan) {
+          errorMsgSpan.innerText = msg;
+          setTimeout(() => {
+            if (errorMsgSpan.innerText === msg) errorMsgSpan.innerText = "";
+          }, 5000);
+        }
+      }
 
-            img.onload = () => {
-              clearTimeout(timeoutId);
-              images[num - 1] = img;
+      // Load one page, insert image, and wait for it to be visible
+      function loadSinglePage(pageNum, retryCount = 0) {
+        return new Promise((resolve) => {
+          const $page = $book.find(`.page:eq(${pageNum - 1})`);
+          // Remove any existing image or content
+          $page.empty();
+          // Add a small loading indicator (optional)
+          $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#475569;font-size:1rem;">Loading ${pageNum}...</div>`);
+
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.loading = "eager";
+          img.decoding = "async";
+          if (pageNum <= 4) img.fetchPriority = "high";
+
+          const timeoutId = setTimeout(() => {
+            if (retryCount < 2) {
+              console.warn(`Timeout loading page ${pageNum}, retry ${retryCount + 1}`);
+              loadSinglePage(pageNum, retryCount + 1).then(resolve);
+            } else {
+              console.error(`Failed to load page ${pageNum} after retries`);
+              $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#f87171;font-size:2rem;">⚠️ ${pageNum}</div>`);
               loadedCount++;
-              updateLoadProgress();
-              console.log(`Loaded page ${num} (${loadedCount}/${TOTAL})`);
+              updateProgressUI();
+              showError(`Page ${pageNum} failed to load`);
               resolve();
-            };
-            img.onerror = () => {
-              clearTimeout(timeoutId);
-              if (attempt < maxRetries - 1) {
-                attempt++;
-                console.warn(`Error loading page ${num}, retry ${attempt + 1}`);
-                tryLoad();
-              } else {
-                console.error(`Failed to load page ${num}`);
-                images[num - 1] = null;
+            }
+          }, 30000); // 30 second timeout
+
+          img.onload = () => {
+            clearTimeout(timeoutId);
+            // Replace content with image
+            $page.empty();
+            const $newImg = $("<img>").attr("src", img.src).attr("crossorigin", "anonymous");
+            $page.append($newImg);
+
+            // Verify image is actually displayed
+            setTimeout(() => {
+              const $checkImg = $page.find("img");
+              if ($checkImg.length && $checkImg[0].complete && $checkImg[0].naturalWidth > 0) {
+                console.log(`✅ Page ${pageNum} loaded and visible`);
                 loadedCount++;
-                updateLoadProgress();
+                updateProgressUI();
                 resolve();
+              } else {
+                console.warn(`Page ${pageNum} image not visible, retrying`);
+                if (retryCount < 2) {
+                  loadSinglePage(pageNum, retryCount + 1).then(resolve);
+                } else {
+                  $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#f87171;font-size:2rem;">⚠️ ${pageNum}</div>`);
+                  loadedCount++;
+                  updateProgressUI();
+                  resolve();
+                }
               }
-            };
-            img.src = `${IMG_PATH}page${num}.${EXT}`;
-          }
-          tryLoad();
+            }, 200);
+          };
+
+          img.onerror = () => {
+            clearTimeout(timeoutId);
+            if (retryCount < 2) {
+              console.warn(`Error loading page ${pageNum}, retry ${retryCount + 1}`);
+              loadSinglePage(pageNum, retryCount + 1).then(resolve);
+            } else {
+              console.error(`Failed to load page ${pageNum} after retries`);
+              $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#f87171;font-size:2rem;">⚠️ ${pageNum}</div>`);
+              loadedCount++;
+              updateProgressUI();
+              showError(`Page ${pageNum} failed to load`);
+              resolve();
+            }
+          };
+
+          img.src = `${IMG_PATH}page${pageNum}.${EXT}`;
         });
       }
 
-      // Load all pages in parallel (no sequencing, but with retries)
-      async function loadAllImages() {
-        const promises = [];
+      // Sequential loader from page 1 to TOTAL
+      async function loadAllPagesSequentially() {
         for (let i = 1; i <= TOTAL; i++) {
-          promises.push(loadImage(i));
-        }
-        await Promise.all(promises);
-        allLoaded = true;
-        console.log("All images preloaded, building flipbook...");
-        // Hide torx loader
-        torxLoader.style.opacity = "0";
-        setTimeout(() => {
-          torxLoader.style.display = "none";
-        }, 400);
-        // Build flipbook pages
-        buildFlipbook();
-      }
-
-      // Build flipbook pages after all images are ready
-      function buildFlipbook() {
-        // Clear any existing pages
-        $book.empty();
-        // Create page divs and insert images
-        for (let i = 0; i < TOTAL; i++) {
-          const $page = $("<div class='page'></div>");
-          const imgData = images[i];
-          if (imgData && imgData instanceof HTMLImageElement && imgData.complete && imgData.naturalWidth > 0) {
-            // Clone the image to avoid reusing the same element (turn.js may move it)
-            const $img = $("<img>").attr("src", imgData.src).attr("crossorigin", "anonymous");
-            $page.append($img);
-          } else {
-            $page.html(`<div style="color:white;font-size:20px;">⚠️ ${i + 1}</div>`);
+          console.log(`Loading page ${i}...`);
+          await loadSinglePage(i);
+          // After page 1 is loaded, we can hide torx and start flipbook
+          if (i === 1) {
+            // Hide torx loader
+            torxLoader.style.opacity = "0";
+            setTimeout(() => {
+              torxLoader.style.display = "none";
+            }, 400);
+            // Initialize flipbook (will show page 1)
+            initFlipbook();
           }
-          $book.append($page);
+          // Small delay to let browser breathe
+          await new Promise(r => setTimeout(r, 50));
         }
-        // Now initialize turn.js
-        initFlipbook();
+        console.log("All pages loaded!");
+        // Final refresh of turn.js to ensure everything is aligned
+        if (bookReady && $book.turn("is")) {
+          const cur = $book.turn("page");
+          $book.turn("page", cur);
+        }
+        // Show completion in progress (optional)
+        if (loadProgressSpan) {
+          loadProgressSpan.innerText = `✓ ALL ${TOTAL} PAGES LOADED`;
+        }
       }
 
-      // FLIPBOOK INIT
+      // Start loading (this will run immediately)
+      loadAllPagesSequentially();
+
+      // Fallback: if torx never hides (e.g., page 1 fails), force hide after 8 seconds
+      setTimeout(() => {
+        if (torxLoader.style.display !== "none") {
+          torxLoader.style.opacity = "0";
+          setTimeout(() => { torxLoader.style.display = "none"; }, 400);
+          if (!bookReady) initFlipbook();
+        }
+      }, 8000);
+
+      // ========== FLIPBOOK INIT ==========
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -452,12 +508,11 @@
         flipSound.play().catch(() => { });
       }
 
-      let bookReady = false;
       function initFlipbook() {
         if (bookReady) return;
         const sz = getBookSize();
         if (sz.width < 50 || sz.height < 50) {
-          setTimeout(initFlipbook, 50);
+          setTimeout(initFlipbook, 100);
           return;
         }
         $book.turn({
@@ -483,7 +538,7 @@
         });
       }
 
-      // ========== ZOOM + PAN (unchanged, robust) ==========
+      // ========== ZOOM & PAN ==========
       let zoom = 1, panX = 0, panY = 0;
       let initZoom = 1, pinchDist = 0, pinching = false, panning = false;
       let lastX = 0, lastY = 0, lastPanX = 0, lastPanY = 0;
@@ -534,7 +589,7 @@
       document.getElementById("zoomOutBtn").addEventListener("click", () => { zoom = Math.max(1, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); });
       document.addEventListener("keydown", (e) => { if (bookReady) { if (e.key === "ArrowLeft") $book.turn("previous"); if (e.key === "ArrowRight") $book.turn("next"); } });
 
-      // PDF EXPORT (unchanged)
+      // PDF EXPORT
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, original = btn.innerHTML;
         btn.disabled = true;
@@ -570,9 +625,6 @@
         } catch (err) { alert("PDF generation failed."); btn.innerHTML = original; }
         finally { btn.disabled = false; }
       });
-
-      // Start preloading
-      loadAllImages();
     })();
   </script>
 </body>
