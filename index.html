@@ -335,14 +335,14 @@
     // Minimum pages loaded before we show the book → now just the first page
     const MIN_PAGES_FOR_TURN = 1;
     
-    const PRELOAD_RADIUS = 3;
+    const PRELOAD_RADIUS = 1;
     let pagesLoadedStatus = new Array(TOTAL_PAGES + 1).fill(false);
     let pageElements = [];
     let bookReady = false;
     let flipbookInstance = null;
     let preloadQueue = [];
     let activePreloads = 0;
-    const MAX_CONCURRENT_PRELOADS = 4;
+    const MAX_CONCURRENT_PRELOADS = 2;
     
     const $flipbook = $("#flipbook");
     const bookArea = document.getElementById("bookArea");
@@ -393,49 +393,69 @@
     
     // Image loading with shimmer placeholder
     function loadImageForPage(pageNum, imgElement, placeholderDiv) {
-      return new Promise((resolve, reject) => {
-        if (pagesLoadedStatus[pageNum]) {
-          resolve(true);
-          return;
-        }
-        const imgSrc = `${IMAGE_FOLDER}page${pageNum}.${IMAGE_EXT}`;
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          imgElement.src = imgSrc;
-          imgElement.classList.add("loaded");
-          if (placeholderDiv) placeholderDiv.style.opacity = "0";
-          setTimeout(() => {
-            if (placeholderDiv && placeholderDiv.parentNode) placeholderDiv.remove();
-          }, 150);
-          pagesLoadedStatus[pageNum] = true;
-          updateLoadProgress();
-          resolve(true);
-        };
-        img.onerror = () => {
-          imgElement.src = "";
-          imgElement.alt = `Page ${pageNum} missing`;
-          const parent = imgElement.parentNode;
-          if (parent && !parent.querySelector(".error-fallback")) {
-            const errDiv = document.createElement("div");
-            errDiv.className = "error-fallback";
-            errDiv.innerText = `⚠️ Page ${pageNum}`;
-            errDiv.style.color = "#94a3b8";
-            errDiv.style.position = "absolute";
-            errDiv.style.inset = "0";
-            errDiv.style.display = "flex";
-            errDiv.style.alignItems = "center";
-            errDiv.style.justifyContent = "center";
-            errDiv.style.background = "#111827";
-            parent.appendChild(errDiv);
-          }
-          pagesLoadedStatus[pageNum] = true; // mark as tried
-          updateLoadProgress();
-          reject(new Error(`Failed to load page ${pageNum}`));
-        };
-        img.src = imgSrc;
-      });
+  return new Promise(async(resolve,reject)=>{
+
+    if (pagesLoadedStatus[pageNum]){
+      resolve(true);
+      return;
     }
+
+    const imgSrc=`${IMAGE_FOLDER}page${pageNum}.${IMAGE_EXT}`;
+
+    try{
+
+      const response=await fetch(imgSrc,{
+        priority:pageNum<=3?"high":"low"
+      });
+
+      const blob=await response.blob();
+
+      let objectURL=URL.createObjectURL(blob);
+
+      imgElement.loading="lazy";
+      imgElement.decoding="async";
+
+      if("createImageBitmap" in window){
+
+          try{
+              await createImageBitmap(blob);
+          }catch(e){}
+      }
+
+      imgElement.onload=()=>{
+
+          URL.revokeObjectURL(objectURL);
+
+          imgElement.classList.add("loaded");
+
+          if(placeholderDiv){
+
+              placeholderDiv.style.opacity=0;
+
+              setTimeout(()=>{
+                  placeholderDiv.remove();
+              },150);
+
+          }
+
+      };
+
+      imgElement.src=objectURL;
+
+      pagesLoadedStatus[pageNum]=true;
+
+      updateLoadProgress();
+
+      resolve(true);
+
+    }catch(e){
+
+      reject();
+
+    }
+
+  });
+}
     
     // Create page DOM element with placeholder
     function createPageElement(pageNum) {
