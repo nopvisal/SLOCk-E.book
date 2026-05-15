@@ -329,276 +329,261 @@
       const loadProgressSpan = document.getElementById("loadProgress");
       const errorMsgSpan = document.getElementById("errorMsg");
 
-      let bookReady = false;
-      let loadedCount = 0;
-      let initialized = false;
+     let bookReady = false;
+let loadedCount = 0;
 
-      function updateProgressUI() {
-        loadProgressSpan.innerText =
-          `${loadedCount} / ${TOTAL} pages`;
+function updateProgressUI(){
+   loadProgressSpan.innerText=
+   `${loadedCount} / ${TOTAL} pages`;
+}
+
+function showError(msg){
+   errorMsgSpan.innerText=msg;
+
+   setTimeout(()=>{
+      if(errorMsgSpan.innerText===msg){
+         errorMsgSpan.innerText="";
       }
-
-      function showError(msg) {
-        errorMsgSpan.innerText = msg;
-
-        setTimeout(() => {
-          if (errorMsgSpan.innerText === msg) {
-            errorMsgSpan.innerText = ""
-          }
-        }, 4000)
-      }
+   },4000);
+}
 
 
-      // preload + verify page
-      async function loadSinglePage(pageNum) {
+async function loadSinglePage(pageNum){
 
-        return new Promise((resolve) => {
+return new Promise((resolve)=>{
 
-          const page = $book.find(".page").eq(pageNum - 1);
+const page=$book.find(".page").eq(pageNum-1);
 
-          const img = new Image();
-
-          img.crossOrigin = "anonymous";
-          img.loading = "eager";
-
-          if (pageNum <= 3) {
-            img.fetchPriority = "high";
-          }
-
-          let finished = false;
-
-          const finish = (success) => {
-
-            if (finished) return;
-            finished = true;
-
-            if (success) {
-
-              page.empty();
-
-              page.append(
-                $("<img>", {
-                  src: img.src,
-                  crossorigin: "anonymous"
-                })
-              );
-
-              loadedCount++;
-              updateProgressUI();
-
-              console.log(
-                "Loaded page",
-                pageNum
-              );
-
-              if (bookReady) {
-
-                try {
-
-                  let current =
-                    $book.turn("page");
-
-                  $book.turn("page", current);
-
-                } catch (e) { }
-              }
-
-              resolve(true);
-
-            } else {
-
-              page.html(
-                `
+page.html(`
 <div style="
 display:flex;
-align-items:center;
 justify-content:center;
-width:100%;
+align-items:center;
 height:100%;
-color:#f87171;
-font-size:22px;
+color:#64748b;
 ">
-Failed ${pageNum}
+Loading ${pageNum}
 </div>
-`
-              );
+`);
 
-              showError(
-                `Page ${pageNum} failed`
-              );
+let attempts=0;
 
-              resolve(false)
+function tryLoad(){
 
-            }
+attempts++;
 
-          };
+const img=new Image();
 
+img.crossOrigin="anonymous";
 
-          let retry = 0;
+if(pageNum<=3){
+img.fetchPriority="high";
+}
 
-          function tryLoad() {
+img.onload=()=>{
 
-            img.src =
-              `${IMG_PATH}page${pageNum}.${EXT}?v=${Date.now()}`;
+if(
+!img.complete ||
+img.naturalWidth===0
+){
 
-            const timeout = setTimeout(() => {
+if(attempts<4){
 
-              retry++;
+tryLoad();
 
-              if (retry < 3) {
+}else{
 
-                console.log(
-                  "Retry page",
-                  pageNum
-                );
+fail();
 
-                tryLoad();
+}
 
-              } else {
+return;
+}
 
-                finish(false);
 
-              }
+const realImg=document.createElement("img");
 
-            }, 12000);
+realImg.src=img.src;
+realImg.draggable=false;
 
+page.empty();
 
-            img.onload = () => {
+page[0].appendChild(realImg);
 
-              clearTimeout(timeout);
+loadedCount++;
 
-              if (
-                img.complete &&
-                img.naturalWidth > 0 &&
-                img.naturalHeight > 0
-              ) {
+updateProgressUI();
 
-                requestAnimationFrame(() => {
+console.log(
+"Loaded page",
+pageNum
+);
 
-                  finish(true);
 
-                });
+if(bookReady){
 
-              } else {
+try{
 
-                retry++;
+const current=
+$book.turn("page");
 
-                if (retry < 3) {
+$book.turn(
+"page",
+current
+);
 
-                  tryLoad();
+}catch(e){}
 
-                } else {
+}
 
-                  finish(false)
+resolve();
 
-                }
+};
 
-              }
 
-            };
+img.onerror=()=>{
 
+if(attempts<4){
 
-            img.onerror = () => {
+setTimeout(
+tryLoad,
+500
+);
 
-              clearTimeout(timeout);
+}else{
 
-              retry++;
+fail();
 
-              if (retry < 3) {
+}
 
-                tryLoad();
+};
 
-              } else {
 
-                finish(false)
+function fail(){
 
-              }
+page.html(`
+<div style="
+display:flex;
+justify-content:center;
+align-items:center;
+height:100%;
+color:#ef4444;
+font-size:20px;
+">
+⚠ ${pageNum}
+</div>
+`);
 
-            };
+showError(
+`Page ${pageNum} failed`
+);
 
-          }
+resolve();
 
-          tryLoad();
+}
 
-        })
+img.src=
+`${IMG_PATH}page${pageNum}.${EXT}`;
 
-      }
+}
 
+tryLoad();
 
+});
 
-      async function loadAllPagesSequentially() {
+}
 
-        for (let i = 1; i <= TOTAL; i++) {
 
-          await loadSinglePage(i);
 
+async function loadAllPagesSequentially(){
 
-          // only start viewer after page1
-          if (i === 1 && !initialized) {
+for(
+let i=1;
+i<=TOTAL;
+i++
+){
 
-            initialized = true;
+await loadSinglePage(i);
 
-            torxLoader.style.opacity = "0";
 
-            setTimeout(() => {
+if(
+i===1 &&
+!bookReady
+){
 
-              torxLoader.style.display = "none";
+torxLoader.style.opacity=0;
 
-            }, 400);
+setTimeout(()=>{
 
-            initFlipbook();
+torxLoader.style.display=
+"none";
 
-          }
+},300);
 
-          await new Promise(
-            r => setTimeout(r, 80)
-          );
+initFlipbook();
 
-        }
+}
 
 
-        if (bookReady) {
+await new Promise(
+r=>setTimeout(r,30)
+);
 
-          let current =
-            $book.turn("page");
+}
 
-          $book.turn("page", current);
 
-        }
+loadProgressSpan.innerText=
+`✓ ALL ${TOTAL} PAGES LOADED`;
 
-        loadProgressSpan.innerText =
-          `✓ ALL ${TOTAL} LOADED`;
 
-      }
+if(
+bookReady &&
+$book.turn("is")
+){
 
+const current=
+$book.turn("page");
 
-      loadAllPagesSequentially();
+$book.turn(
+"page",
+current
+);
 
+}
 
-      // emergency fallback
-      setTimeout(() => {
+}
 
-        if (
-          torxLoader.style.display !== "none"
-        ) {
 
-          torxLoader.style.opacity = 0;
+loadAllPagesSequentially();
 
-          setTimeout(() => {
 
-            torxLoader.style.display = "none"
 
-          }, 400);
+setTimeout(()=>{
 
-          if (!bookReady) {
+if(
+torxLoader.style.display
+!=="none"
+){
 
-            initFlipbook();
+torxLoader.style.opacity=0;
 
-          }
+setTimeout(()=>{
 
-        }
+torxLoader.style.display=
+"none";
 
-      }, 15000);
+},300);
+
+
+if(!bookReady){
+
+initFlipbook();
+
+}
+
+}
+
+},15000);
 
 
       // ========== FLIPBOOK INIT ==========
@@ -646,17 +631,9 @@ Failed ${pageNum}
           acceleration: true, gradients: true, elevation: 45, duration: 500,
           when: {
             turning: () => playFlipSound(),
-            turned: (e, page) => {
-
-              updateCounter(page);
-
-              setTimeout(() => {
-
-                $book.turn("page", page);
-
-              }, 50);
-
-            }
+           turned:(e,page)=>{
+updateCounter(page)
+}
           }
         });
         updateCounter(1);
