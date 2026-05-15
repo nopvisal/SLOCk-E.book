@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK Catalog</title>
+  <title>SLOCK CATALOG</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -37,7 +37,6 @@
       overflow: hidden;
     }
 
-    /* Navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -139,7 +138,6 @@
       }
     }
 
-    /* Book area */
     .book-area {
       flex: 1;
       position: relative;
@@ -195,7 +193,6 @@
       z-index: 20;
     }
 
-    /* Torx loader – forced hide after 1.5s max */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -327,7 +324,7 @@
     (function () {
       const TOTAL = 36;
       const IMG_PATH = "images/";
-      const EXT = "webp";  // change to "jpg" if needed
+      const EXT = "webp";   // change to "jpg" if your images are .jpg
 
       const $book = $("#flipbook");
       const bookArea = document.getElementById("bookArea");
@@ -335,12 +332,12 @@
       const torxLoader = document.getElementById("torxLoader");
       let bookReady = false;
 
-      // ---------- CREATE ALL PAGE CONTAINERS (empty, dark background) ----------
+      // ---------- CREATE ALL PAGE CONTAINERS ----------
       for (let i = 1; i <= TOTAL; i++) {
         $("<div class='page'></div>").css("background", "#111827").appendTo($book);
       }
 
-      // ---------- AGGRESSIVE PRELOADING (ALL PAGES, PRIORITIZED) ----------
+      // ---------- LOAD TRACKING ----------
       const loaded = new Array(TOTAL + 1).fill(false);
       const loading = new Set();
 
@@ -357,7 +354,6 @@
           }
           loaded[num] = true;
           loading.delete(num);
-          // If flipbook is active, force a repaint for current page to avoid glitch
           if (bookReady && $book.turn("is")) {
             const cur = $book.turn("page");
             $book.turn("page", cur);
@@ -374,27 +370,28 @@
         img.src = `${IMG_PATH}page${num}.${EXT}`;
       }
 
-      // Load first 4 pages immediately (critical for instant flipping)
+      // ---------- LOAD ALL PAGES WITH PRIORITY FOR FIRST 4 ----------
+      // Immediate load for pages 1-4
       loadPage(1, true);
-      loadPage(2, false);
-      loadPage(3, false);
-      loadPage(4, false);
+      loadPage(2, true);
+      loadPage(3, true);
+      loadPage(4, true);
 
-      // Load pages 5–36 in the background using requestIdleCallback (or setTimeout fallback)
-      function loadRemainingPages() {
-        for (let i = 5; i <= TOTAL; i++) {
+      // Load pages 5-36 with a small delay between each to avoid flooding and ensure all load
+      for (let i = 5; i <= TOTAL; i++) {
+        setTimeout(() => loadPage(i, false), (i - 4) * 50);
+      }
+
+      // Safety net: after 8 seconds, check if any page not loaded and retry
+      setTimeout(() => {
+        for (let i = 1; i <= TOTAL; i++) {
           if (!loaded[i]) {
             loadPage(i, false);
           }
         }
-      }
-      if (window.requestIdleCallback) {
-        requestIdleCallback(loadRemainingPages, { timeout: 2000 });
-      } else {
-        setTimeout(loadRemainingPages, 500);
-      }
+      }, 8000);
 
-      // ---------- HIDE TORX LOADER (FORCED AFTER 1.5 SECONDS) ----------
+      // ---------- HIDE TORX LOADER (after 1.5s max or when page 1 loads) ----------
       let torxHidden = false;
       function hideTorx() {
         if (torxHidden) return;
@@ -406,14 +403,12 @@
           }, 300);
         }
       }
-      // If page1 loads quickly, hide immediately
       const checkPage1 = setInterval(() => {
         if (loaded[1]) {
           hideTorx();
           clearInterval(checkPage1);
         }
       }, 50);
-      // Force hide after 1500ms no matter what
       setTimeout(hideTorx, 1500);
 
       // ---------- FLIPBOOK INIT ----------
@@ -550,13 +545,12 @@
         pinching = false; panning = false; swipeActive = false; pinchDist = 0;
       });
 
-      // Buttons
       document.getElementById("zoomInBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.min(4.0, zoom + 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("zoomOutBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.max(1.0, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
       document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
 
-      // PDF Export
+      // PDF Export (full quality)
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = "📄 Preparing...";
