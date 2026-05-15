@@ -203,7 +203,7 @@
       z-index: 20;
     }
 
-    /* Torx loader – stays until first page image is fully loaded */
+    /* Torx loader – shown until page1 is ready */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -216,7 +216,7 @@
       justify-content: center;
       align-items: center;
       backdrop-filter: blur(8px);
-      transition: opacity 0.4s ease;
+      transition: opacity 0.3s ease;
     }
 
     .torx {
@@ -337,92 +337,99 @@
       const IMG_PATH = "images/";
       const EXT = "webp";
 
-      // DOM elements
+      // DOM
       const $book = $("#flipbook");
       const bookArea = document.getElementById("bookArea");
       const zoomContainer = document.getElementById("zoomContainer");
       const torxLoader = document.getElementById("torxLoader");
+
       let bookReady = false;
+      let currentPage = 1;
 
-      // ---------- PRELOAD PAGE 1 FIRST (mandatory) ----------
-      let page1Loaded = false;
-      let page1Image = null;
-
-      // Create all page containers (empty, no spinners)
+      // ---------- CREATE ALL PAGE CONTAINERS (empty) ----------
       for (let i = 1; i <= TOTAL; i++) {
-        const $page = $("<div class='page'></div>");
-        // Add a solid dark background to avoid white flashes
-        $page.css("background", "#111827");
-        $book.append($page);
+        $("<div class='page'></div>").css("background", "#111827").appendTo($book);
       }
 
-      // Load page 1 with highest priority
-      const img1 = new Image();
-      img1.crossOrigin = "anonymous";
-      img1.fetchPriority = "high";
-      img1.onload = () => {
-        page1Image = img1.src;
-        page1Loaded = true;
-        // Insert image into first page
-        const $firstPage = $book.find(".page:first-child");
-        $firstPage.empty().append($("<img>").attr("src", img1.src).attr("crossorigin", "anonymous"));
-        // Preload pages 2,3,4 immediately (so they are ready when user swipes)
-        preloadPage(2);
-        preloadPage(3);
-        preloadPage(4);
-        // Preload remaining pages in background with lower priority
-        for (let i = 5; i <= TOTAL; i++) {
-          setTimeout(() => preloadPage(i), 100);
+      // ---------- INTELLIGENT PRELOADING ----------
+      const loadedPages = new Array(TOTAL + 1).fill(false);
+      const loadingQueue = new Set();
+
+      function loadPageImage(pageNum, priority = false) {
+        if (loadedPages[pageNum]) return Promise.resolve();
+        if (loadingQueue.has(pageNum)) return Promise.resolve();
+        loadingQueue.add(pageNum);
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          if (priority) img.fetchPriority = "high";
+          img.onload = () => {
+            const $page = $book.find(`.page:eq(${pageNum - 1})`);
+            if ($page.length && !$page.find("img").length) {
+              $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous").attr("decoding", "async"));
+            }
+            loadedPages[pageNum] = true;
+            loadingQueue.delete(pageNum);
+            if (bookReady && $book.turn("is")) {
+              // force tiny repaint if needed
+              const cur = $book.turn("page");
+              $book.turn("page", cur);
+            }
+            resolve();
+          };
+          img.onerror = () => {
+            const $page = $book.find(`.page:eq(${pageNum - 1})`);
+            if ($page.length && !$page.find("img").length) {
+              $page.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ ${pageNum}</div>`);
+            }
+            loadedPages[pageNum] = true;
+            loadingQueue.delete(pageNum);
+            resolve();
+          };
+          img.src = `${IMG_PATH}page${pageNum}.${EXT}`;
+        });
+      }
+
+      // Preload pages around a given center
+      function preloadAround(page, range = 2) {
+        const start = Math.max(1, page - range);
+        const end = Math.min(TOTAL, page + range);
+        for (let i = start; i <= end; i++) {
+          if (!loadedPages[i]) loadPageImage(i, false);
         }
-        // Now that page1 is ready, initialize flipbook and hide torx
-        initFlipbook();
-        // Reveal book area after a tiny delay to let turn.js settle
-        setTimeout(() => {
-          if (torxLoader) {
-            torxLoader.style.opacity = "0";
-            setTimeout(() => {
-              torxLoader.style.display = "none";
-              bookArea.classList.add("visible");
-            }, 400);
-          }
-        }, 50);
-      };
-      img1.onerror = () => {
-        // Fallback: show error on first page
-        page1Loaded = true;
-        const $firstPage = $book.find(".page:first-child");
-        $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ Page 1 missing</div>`);
-        initFlipbook();
+      }
+
+      // Immediately load page 1 (critical) and pages 2-4 (so next flips are instant)
+      (async () => {
+        await loadPageImage(1, true);  // high priority
+        // Hide torx and show book
         if (torxLoader) {
           torxLoader.style.opacity = "0";
           setTimeout(() => {
             torxLoader.style.display = "none";
             bookArea.classList.add("visible");
-          }, 400);
+          }, 300);
         }
-      };
-      img1.src = `${IMG_PATH}page1.${EXT}`;
-
-      // Preload helper – loads image and replaces page content when ready
-      function preloadPage(num) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const $page = $book.find(`.page:eq(${num - 1})`);
-          // Only replace if page still has no image (avoid double insert)
-          if ($page.length && !$page.find("img").length) {
-            $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
-            // If flipbook is already active, force a small update to avoid glitch
-            if (bookReady && $book.turn("is")) {
-              const current = $book.turn("page");
-              $book.turn("page", current);
+        // Preload next pages in background without blocking
+        loadPageImage(2, false);
+        loadPageImage(3, false);
+        loadPageImage(4, false);
+        preloadAround(1, 2); // pages 1-3 already, but ensure
+        // Then start idle preloading of remaining pages slowly
+        if (window.requestIdleCallback) {
+          requestIdleCallback(() => {
+            for (let i = 5; i <= TOTAL; i++) {
+              setTimeout(() => loadPageImage(i, false), i * 30);
             }
+          });
+        } else {
+          for (let i = 5; i <= TOTAL; i++) {
+            setTimeout(() => loadPageImage(i, false), i * 50);
           }
-        };
-        img.src = `${IMG_PATH}page${num}.${EXT}`;
-      }
+        }
+      })();
 
-      // ---------- FLIPBOOK INIT (only after page1 ready) ----------
+      // ---------- FLIPBOOK INIT ----------
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -434,6 +441,9 @@
 
       function updateCounter(p) {
         document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
+        currentPage = p;
+        // Preload pages around new current page
+        preloadAround(p, 2);
       }
 
       function initFlipbook() {
@@ -465,6 +475,8 @@
           }
         });
       }
+      // Start turn.js after a tiny delay to let first image attach
+      setTimeout(initFlipbook, 100);
 
       // ---------- AUDIO ----------
       const flipSound = document.getElementById("flipSound");
@@ -485,7 +497,7 @@
         }
       }
 
-      // ---------- ZOOM + PAN + DOUBLE-TAP + SWIPE ----------
+      // ---------- ZOOM + PAN + DOUBLE-TAP + SWIPE (unchanged but verified) ----------
       let zoom = 1, panX = 0, panY = 0;
       let initZoom = 1, initPanX = 0, initPanY = 0;
       let pinchDist = 0, pinching = false, panning = false;
@@ -561,7 +573,7 @@
       document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
       document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
 
-      // PDF Export
+      // PDF Export (unchanged)
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = "📄 Preparing...";
