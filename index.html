@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK CATALOG</title>
+  <title>SLOCK E-BOOK</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -37,6 +37,7 @@
       overflow: hidden;
     }
 
+    /* Navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -138,6 +139,7 @@
       }
     }
 
+    /* Book area */
     .book-area {
       flex: 1;
       position: relative;
@@ -193,6 +195,7 @@
       z-index: 20;
     }
 
+    /* Torx loader */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -324,7 +327,7 @@
     (function () {
       const TOTAL = 36;
       const IMG_PATH = "images/";
-      const EXT = "webp";   // change to "jpg" if your images are .jpg
+      const EXT = "webp";   // change to "jpg" if needed
 
       const $book = $("#flipbook");
       const bookArea = document.getElementById("bookArea");
@@ -332,86 +335,75 @@
       const torxLoader = document.getElementById("torxLoader");
       let bookReady = false;
 
-      // ---------- CREATE ALL PAGE CONTAINERS ----------
+      // Create all page containers (empty, solid background)
       for (let i = 1; i <= TOTAL; i++) {
         $("<div class='page'></div>").css("background", "#111827").appendTo($book);
       }
 
-      // ---------- LOAD TRACKING ----------
+      // ---------- SEQUENTIAL PRIORITY LOADING (page1 → page36) ----------
+      // This ensures each page loads in order, giving full bandwidth to the current page.
+      // Page 1 loads with high priority; once loaded, torx hides and flipbook starts.
+      // Then pages 2..36 load one after another (non-blocking for UI).
+
       const loaded = new Array(TOTAL + 1).fill(false);
-      const loading = new Set();
+      let currentLoading = 1;
+      let loadingQueue = false;
 
       function loadPage(num, priority = false) {
-        if (loaded[num] || loading.has(num)) return;
-        loading.add(num);
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        if (priority) img.fetchPriority = "high";
-        img.onload = () => {
-          const $page = $book.find(`.page:eq(${num - 1})`);
-          if ($page.length && !$page.find("img").length) {
-            $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
-          }
-          loaded[num] = true;
-          loading.delete(num);
-          if (bookReady && $book.turn("is")) {
-            const cur = $book.turn("page");
-            $book.turn("page", cur);
-          }
-        };
-        img.onerror = () => {
-          const $page = $book.find(`.page:eq(${num - 1})`);
-          if ($page.length && !$page.find("img").length) {
-            $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;">⚠️ ${num}</div>`);
-          }
-          loaded[num] = true;
-          loading.delete(num);
-        };
-        img.src = `${IMG_PATH}page${num}.${EXT}`;
+        if (loaded[num]) return Promise.resolve();
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          if (priority) img.fetchPriority = "high";
+          img.onload = () => {
+            const $page = $book.find(`.page:eq(${num - 1})`);
+            if ($page.length && !$page.find("img").length) {
+              $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous").attr("decoding", "async"));
+            }
+            loaded[num] = true;
+            if (num === 1) {
+              // Page 1 is ready: hide torx and start flipbook
+              if (torxLoader) {
+                torxLoader.style.opacity = "0";
+                setTimeout(() => { torxLoader.style.display = "none"; }, 300);
+              }
+              initFlipbook();
+            }
+            resolve();
+          };
+          img.onerror = () => {
+            const $page = $book.find(`.page:eq(${num - 1})`);
+            if ($page.length && !$page.find("img").length) {
+              $page.html(`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;">⚠️ ${num}</div>`);
+            }
+            loaded[num] = true;
+            if (num === 1) {
+              if (torxLoader) {
+                torxLoader.style.opacity = "0";
+                setTimeout(() => { torxLoader.style.display = "none"; }, 300);
+              }
+              initFlipbook();
+            }
+            resolve();
+          };
+          img.src = `${IMG_PATH}page${num}.${EXT}`;
+        });
       }
 
-      // ---------- LOAD ALL PAGES WITH PRIORITY FOR FIRST 4 ----------
-      // Immediate load for pages 1-4
-      loadPage(1, true);
-      loadPage(2, true);
-      loadPage(3, true);
-      loadPage(4, true);
-
-      // Load pages 5-36 with a small delay between each to avoid flooding and ensure all load
-      for (let i = 5; i <= TOTAL; i++) {
-        setTimeout(() => loadPage(i, false), (i - 4) * 50);
-      }
-
-      // Safety net: after 8 seconds, check if any page not loaded and retry
-      setTimeout(() => {
-        for (let i = 1; i <= TOTAL; i++) {
-          if (!loaded[i]) {
-            loadPage(i, false);
+      // Start loading page 1 immediately (high priority)
+      loadPage(1, true).then(() => {
+        // After page 1 loaded, sequentially load pages 2 to 36
+        async function loadAllRemaining() {
+          for (let i = 2; i <= TOTAL; i++) {
+            await loadPage(i, false);
+            // Small delay between loads to avoid overwhelming the network, but still fast
+            await new Promise(r => setTimeout(r, 30));
           }
         }
-      }, 8000);
+        loadAllRemaining();
+      });
 
-      // ---------- HIDE TORX LOADER (after 1.5s max or when page 1 loads) ----------
-      let torxHidden = false;
-      function hideTorx() {
-        if (torxHidden) return;
-        torxHidden = true;
-        if (torxLoader) {
-          torxLoader.style.opacity = "0";
-          setTimeout(() => {
-            torxLoader.style.display = "none";
-          }, 300);
-        }
-      }
-      const checkPage1 = setInterval(() => {
-        if (loaded[1]) {
-          hideTorx();
-          clearInterval(checkPage1);
-        }
-      }, 50);
-      setTimeout(hideTorx, 1500);
-
-      // ---------- FLIPBOOK INIT ----------
+      // ---------- FLIPBOOK INIT (only after page 1 is loaded) ----------
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -454,7 +446,6 @@
           }
         });
       }
-      setTimeout(initFlipbook, 100);
 
       // ---------- AUDIO ----------
       const flipSound = document.getElementById("flipSound");
@@ -550,7 +541,7 @@
       document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
       document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
 
-      // PDF Export (full quality)
+      // PDF Export
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = "📄 Preparing...";
