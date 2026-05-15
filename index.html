@@ -5,22 +5,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-
-  <title>SLOCK E-BOOK</title>
-
+  <title>SLOCK E-BOOK – Guaranteed Full Load</title>
   <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
     rel="stylesheet">
-
   <style>
     * {
       margin: 0;
@@ -129,15 +122,18 @@
         gap: 10px;
         min-height: 60px;
       }
+
       .brand {
         font-size: 1.1rem;
       }
+
       .control-btn {
         height: 36px;
         min-width: 36px;
         padding: 0 12px;
         font-size: 0.75rem;
       }
+
       .page-indicator {
         padding: 4px 10px;
         font-size: 0.75rem;
@@ -176,7 +172,6 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      position: relative;
     }
 
     .page img {
@@ -186,21 +181,6 @@
       display: block;
       pointer-events: none;
       background: #111827;
-    }
-
-    .page-status {
-      position: absolute;
-      bottom: 5px;
-      left: 5px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #ff4444;
-      z-index: 10;
-      pointer-events: none;
-    }
-    .page-status.loaded {
-      background: #44ff44;
     }
 
     .zoom-hint {
@@ -224,10 +204,12 @@
       background: radial-gradient(circle at center, #0f172a, #020617);
       z-index: 200000;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       backdrop-filter: blur(8px);
       transition: opacity 0.3s ease;
+      gap: 20px;
     }
 
     .torx {
@@ -252,410 +234,347 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     @keyframes dash {
-      0% { stroke-dashoffset: 240; }
-      50% { stroke-dashoffset: 80; }
-      100% { stroke-dashoffset: 240; }
+      0% {
+        stroke-dashoffset: 240;
+      }
+
+      50% {
+        stroke-dashoffset: 80;
+      }
+
+      100% {
+        stroke-dashoffset: 240;
+      }
     }
 
     .loader-text {
-      position: absolute;
-      bottom: 30%;
-      width: 100%;
       text-align: center;
       color: #cbd5e6;
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 500;
       letter-spacing: 2px;
     }
 
-    .loading-progress {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.7rem;
+    .loader-progress {
+      color: #94a3b8;
+      font-size: 0.9rem;
       font-family: monospace;
-      color: #cbd5e6;
-      pointer-events: none;
-      z-index: 200001;
     }
   </style>
 </head>
 
 <body>
-
-<div class="app">
-  <div class="topbar">
-    <div class="left-tools">
-      <div class="brand">SLOCK</div>
+  <div class="app">
+    <div class="topbar">
+      <div class="left-tools">
+        <div class="brand">SLOCK</div>
+      </div>
+      <div class="right-tools">
+        <button class="control-btn" id="prevBtn">◀</button>
+        <div class="page-indicator" id="pageCounter">1 / 36</div>
+        <button class="control-btn" id="nextBtn">▶</button>
+        <button class="control-btn" id="zoomOutBtn">−</button>
+        <button class="control-btn" id="zoomInBtn">+</button>
+        <button class="control-btn" id="downloadPDF">PDF</button>
+      </div>
     </div>
-    <div class="right-tools">
-      <button class="control-btn" id="prevBtn">◀</button>
-      <div class="page-indicator" id="pageCounter">1 / 36</div>
-      <button class="control-btn" id="nextBtn">▶</button>
-      <button class="control-btn" id="zoomOutBtn">−</button>
-      <button class="control-btn" id="zoomInBtn">+</button>
-      <button class="control-btn" id="downloadPDF">PDF</button>
+    <div class="book-area" id="bookArea">
+      <div class="zoom-container" id="zoomContainer">
+        <div id="flipbook"></div>
+      </div>
+      <div class="zoom-hint">Pinch zoom · Drag pan · Double-tap reset · Swipe to flip</div>
     </div>
   </div>
-  <div class="book-area" id="bookArea">
-    <div class="zoom-container" id="zoomContainer">
-      <div id="flipbook"></div>
-    </div>
-    <div class="zoom-hint">Pinch zoom · Drag pan · Double-tap reset · Swipe to flip</div>
+
+  <div id="torxLoader" class="torx-loader">
+    <div class="torx"><svg viewBox="0 0 100 100">
+        <path class="path"
+          d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71"
+          stroke="currentColor" fill="none" />
+      </svg></div>
+    <div class="loader-text">LOADING CATALOG</div>
+    <div class="loader-progress" id="loadProgress">0 / 36 pages</div>
   </div>
-</div>
 
-<div id="torxLoader" class="torx-loader">
-  <div class="torx">
-    <svg viewBox="0 0 100 100">
-      <path class="path"
-        d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71"
-        stroke="currentColor" fill="none" />
-    </svg>
-  </div>
-  <div class="loader-text">LOADING</div>
-</div>
+  <audio id="flipSound" preload="auto" crossorigin="anonymous">
+    <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3"
+      type="audio/mpeg">
+  </audio>
 
-<div class="loading-progress" id="loadingProgress">0 / 36 pages</div>
+  <script>
+    (() => {
+      const TOTAL = 36;
+      const IMG_PATH = "images/";
+      const EXT = "webp";
 
-<audio id="flipSound" preload="auto" crossorigin="anonymous">
-  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
-</audio>
+      // Preload all images into an array
+      const images = new Array(TOTAL);
+      let loadedCount = 0;
+      let allLoaded = false;
 
-<script>
-  (() => {
-    const TOTAL = 36;
-    const IMG_PATH = "images/";
-    const EXT = "webp";
+      const $book = $("#flipbook");
+      const bookArea = document.getElementById("bookArea");
+      const zoomContainer = document.getElementById("zoomContainer");
+      const torxLoader = document.getElementById("torxLoader");
+      const loadProgressSpan = document.getElementById("loadProgress");
 
-    const $book = $("#flipbook");
-    const bookArea = document.getElementById("bookArea");
-    const zoomContainer = document.getElementById("zoomContainer");
-    const torxLoader = document.getElementById("torxLoader");
-    const progressDiv = document.getElementById("loadingProgress");
-
-    let bookReady = false;
-    let loadedCount = 0;
-    let currentLoadingPage = 1;
-    let isLoading = false;
-
-    // CREATE PAGE CONTAINERS with a status dot
-    for (let i = 1; i <= TOTAL; i++) {
-      const $page = $("<div class='page'></div>");
-      const $status = $("<div class='page-status'></div>");
-      $page.append($status);
-      // Add a dark placeholder background
-      $page.css("background", "#111827");
-      $book.append($page);
-    }
-
-    function updateProgressUI() {
-      if (progressDiv) {
-        progressDiv.innerText = `${loadedCount} / ${TOTAL} pages`;
+      function updateLoadProgress() {
+        if (loadProgressSpan) {
+          loadProgressSpan.innerText = `${loadedCount} / ${TOTAL} pages`;
+        }
       }
-    }
 
-    // Mark a page as loaded visually and increment counter
-    function markPageLoaded(pageNum) {
-      const $status = $book.find(`.page:eq(${pageNum - 1}) .page-status`);
-      if ($status.length && !$status.hasClass("loaded")) {
-        $status.addClass("loaded");
-        loadedCount++;
-        updateProgressUI();
-        console.log(`✅ Page ${pageNum} marked loaded (${loadedCount}/${TOTAL})`);
-      }
-    }
+      // Load a single image with retries
+      function loadImage(num, maxRetries = 3) {
+        return new Promise((resolve) => {
+          let attempt = 0;
+          function tryLoad() {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.loading = "eager";
+            if (num <= 4) img.fetchPriority = "high";
+            const timeoutId = setTimeout(() => {
+              if (attempt < maxRetries - 1) {
+                attempt++;
+                console.warn(`Retry ${attempt + 1} for page ${num}`);
+                tryLoad();
+              } else {
+                console.error(`Failed to load page ${num} after ${maxRetries} attempts`);
+                images[num - 1] = null; // mark as failed
+                loadedCount++;
+                updateLoadProgress();
+                resolve();
+              }
+            }, 30000); // 30s timeout
 
-    // Force refresh the current turn.js page
-    function refreshCurrentPage() {
-      if (bookReady && $book.turn("is")) {
-        const cur = $book.turn("page");
-        $book.turn("page", cur);
-      }
-    }
-
-    // Load a single page with full verification
-    function loadPageSequential(pageNum) {
-      return new Promise((resolve) => {
-        const $page = $book.find(`.page:eq(${pageNum - 1})`);
-        // Clear any existing content except the status dot
-        $page.find("img").remove();
-        
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.loading = "eager";
-        img.decoding = "async";
-        if (pageNum <= 4) img.fetchPriority = "high";
-        
-        let resolved = false;
-        const timeoutId = setTimeout(() => {
-          if (!resolved) {
-            resolved = true;
-            console.error(`Timeout loading page ${pageNum}`);
-            $page.append(`<div style="color:white;font-size:20px;">⚠️ ${pageNum}</div>`);
-            markPageLoaded(pageNum);
-            resolve();
+            img.onload = () => {
+              clearTimeout(timeoutId);
+              images[num - 1] = img;
+              loadedCount++;
+              updateLoadProgress();
+              console.log(`Loaded page ${num} (${loadedCount}/${TOTAL})`);
+              resolve();
+            };
+            img.onerror = () => {
+              clearTimeout(timeoutId);
+              if (attempt < maxRetries - 1) {
+                attempt++;
+                console.warn(`Error loading page ${num}, retry ${attempt + 1}`);
+                tryLoad();
+              } else {
+                console.error(`Failed to load page ${num}`);
+                images[num - 1] = null;
+                loadedCount++;
+                updateLoadProgress();
+                resolve();
+              }
+            };
+            img.src = `${IMG_PATH}page${num}.${EXT}`;
           }
-        }, 20000);
-        
-        img.onload = async () => {
-          clearTimeout(timeoutId);
-          try { if (img.decode) await img.decode(); } catch(e) {}
-          // Insert image
-          $page.find("img").remove();
-          const $newImg = $("<img>").attr("src", img.src).attr("crossorigin", "anonymous");
-          $page.append($newImg);
-          // Verify image is actually visible
-          setTimeout(() => {
-            const $checkImg = $page.find("img");
-            if ($checkImg.length && $checkImg[0].complete && $checkImg[0].naturalWidth > 0) {
-              console.log(`✅ Page ${pageNum} image confirmed visible`);
-              markPageLoaded(pageNum);
-              refreshCurrentPage();
-              if (!resolved) { resolved = true; resolve(); }
-            } else {
-              console.warn(`Page ${pageNum} image not visible, retrying...`);
-              // Retry once more
-              setTimeout(() => {
-                if (!resolved) {
-                  $page.append(`<div style="color:white;font-size:20px;">⚠️ ${pageNum}</div>`);
-                  markPageLoaded(pageNum);
-                  resolved = true;
-                  resolve();
-                }
-              }, 500);
-            }
-          }, 150);
-        };
-        
-        img.onerror = () => {
-          clearTimeout(timeoutId);
-          console.error(`Failed to load page ${pageNum}`);
-          $page.append(`<div style="color:white;font-size:20px;">⚠️ ${pageNum}</div>`);
-          markPageLoaded(pageNum);
-          if (!resolved) { resolved = true; resolve(); }
-        };
-        
-        img.src = `${IMG_PATH}page${pageNum}.${EXT}`;
-      });
-    }
-
-    // Sequential loader (one page at a time, from 1 to 36)
-    async function loadAllPagesSequentially() {
-      console.log("Starting sequential loading from page 1 to 36");
-      for (let i = 1; i <= TOTAL; i++) {
-        await loadPageSequential(i);
-        // Small delay to let DOM update and avoid network flooding
-        await new Promise(r => setTimeout(r, 100));
+          tryLoad();
+        });
       }
-      console.log("All pages loaded sequentially!");
-      // Final refresh of the current page
-      refreshCurrentPage();
-    }
 
-    // Start loading immediately
-    loadAllPagesSequentially();
-
-    // Hide torx loader once page 1 is confirmed loaded
-    function checkPage1Loaded() {
-      const $page1 = $book.find(".page:first-child .page-status");
-      if ($page1.hasClass("loaded")) {
-        clearInterval(page1Interval);
+      // Load all pages in parallel (no sequencing, but with retries)
+      async function loadAllImages() {
+        const promises = [];
+        for (let i = 1; i <= TOTAL; i++) {
+          promises.push(loadImage(i));
+        }
+        await Promise.all(promises);
+        allLoaded = true;
+        console.log("All images preloaded, building flipbook...");
+        // Hide torx loader
         torxLoader.style.opacity = "0";
         setTimeout(() => {
           torxLoader.style.display = "none";
-        }, 300);
+        }, 400);
+        // Build flipbook pages
+        buildFlipbook();
+      }
+
+      // Build flipbook pages after all images are ready
+      function buildFlipbook() {
+        // Clear any existing pages
+        $book.empty();
+        // Create page divs and insert images
+        for (let i = 0; i < TOTAL; i++) {
+          const $page = $("<div class='page'></div>");
+          const imgData = images[i];
+          if (imgData && imgData instanceof HTMLImageElement && imgData.complete && imgData.naturalWidth > 0) {
+            // Clone the image to avoid reusing the same element (turn.js may move it)
+            const $img = $("<img>").attr("src", imgData.src).attr("crossorigin", "anonymous");
+            $page.append($img);
+          } else {
+            $page.html(`<div style="color:white;font-size:20px;">⚠️ ${i + 1}</div>`);
+          }
+          $book.append($page);
+        }
+        // Now initialize turn.js
         initFlipbook();
       }
-    }
-    const page1Interval = setInterval(checkPage1Loaded, 100);
-    // Fallback: force hide after 6 seconds
-    setTimeout(() => {
-      if (torxLoader.style.display !== "none") {
-        torxLoader.style.opacity = "0";
-        setTimeout(() => { torxLoader.style.display = "none"; }, 300);
-        initFlipbook();
+
+      // FLIPBOOK INIT
+      function getBookSize() {
+        const rect = bookArea.getBoundingClientRect();
+        let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
+        const ratio = 0.707;
+        let w = maxW, h = w / ratio;
+        if (h > maxH) { h = maxH; w = h * ratio; }
+        return { width: Math.floor(w), height: Math.floor(h) };
       }
-    }, 6000);
 
-    // ========== FLIPBOOK INIT ==========
-    function getBookSize() {
-      const rect = bookArea.getBoundingClientRect();
-      let maxW = rect.width * 0.92;
-      let maxH = rect.height * 0.92;
-      const ratio = 0.707;
-      let w = maxW;
-      let h = w / ratio;
-      if (h > maxH) { h = maxH; w = h * ratio; }
-      return { width: Math.floor(w), height: Math.floor(h) };
-    }
+      function updateCounter(p) {
+        document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
+      }
 
-    function updateCounter(p) {
-      document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
-    }
-
-    // AUDIO
-    const flipSound = document.getElementById("flipSound");
-    let audioUnlocked = false;
-    function unlockAudio() {
-      if (audioUnlocked) return;
-      flipSound.play().then(() => {
+      // AUDIO
+      const flipSound = document.getElementById("flipSound");
+      let audioUnlocked = false;
+      function unlockAudio() {
+        if (audioUnlocked) return;
+        flipSound.play().then(() => { flipSound.pause(); flipSound.currentTime = 0; }).catch(() => { });
+        audioUnlocked = true;
+      }
+      document.body.addEventListener("touchstart", unlockAudio, { once: true });
+      document.body.addEventListener("click", unlockAudio, { once: true });
+      function playFlipSound() {
+        if (!audioUnlocked) return;
         flipSound.pause();
         flipSound.currentTime = 0;
-      }).catch(() => {});
-      audioUnlocked = true;
-    }
-    document.body.addEventListener("touchstart", unlockAudio, { once: true });
-    document.body.addEventListener("click", unlockAudio, { once: true });
-    function playFlipSound() {
-      if (!audioUnlocked) return;
-      flipSound.pause();
-      flipSound.currentTime = 0;
-      flipSound.volume = 0.65;
-      flipSound.play().catch(() => {});
-    }
-
-    function initFlipbook() {
-      if (bookReady) return;
-      const sz = getBookSize();
-      if (sz.width < 50 || sz.height < 50) {
-        setTimeout(initFlipbook, 50);
-        return;
+        flipSound.volume = 0.65;
+        flipSound.play().catch(() => { });
       }
-      $book.turn({
-        width: sz.width,
-        height: sz.height,
-        autoCenter: true,
-        display: "single",
-        acceleration: true,
-        gradients: true,
-        elevation: 45,
-        duration: 500,
-        when: {
-          turning: () => playFlipSound(),
-          turned: (e, page) => updateCounter(page)
+
+      let bookReady = false;
+      function initFlipbook() {
+        if (bookReady) return;
+        const sz = getBookSize();
+        if (sz.width < 50 || sz.height < 50) {
+          setTimeout(initFlipbook, 50);
+          return;
         }
+        $book.turn({
+          width: sz.width, height: sz.height,
+          autoCenter: true, display: "single",
+          acceleration: true, gradients: true, elevation: 45, duration: 500,
+          when: {
+            turning: () => playFlipSound(),
+            turned: (e, page) => updateCounter(page)
+          }
+        });
+        updateCounter(1);
+        bookReady = true;
+        resetZoomPan();
+        window.addEventListener("resize", () => {
+          if ($book.turn("is")) {
+            setTimeout(() => {
+              const ns = getBookSize();
+              $book.turn("size", ns.width, ns.height);
+              resetZoomPan();
+            }, 80);
+          }
+        });
+      }
+
+      // ========== ZOOM + PAN (unchanged, robust) ==========
+      let zoom = 1, panX = 0, panY = 0;
+      let initZoom = 1, pinchDist = 0, pinching = false, panning = false;
+      let lastX = 0, lastY = 0, lastPanX = 0, lastPanY = 0;
+      let lastTap = 0, lastTapX = 0, lastTapY = 0;
+      let swipeStart = 0, swipeActive = false;
+
+      function applyTransform() {
+        zoomContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
+        if (zoom > 1.02) $book.css("pointer-events", "none");
+        else { $book.css("pointer-events", "auto"); if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; zoomContainer.style.transform = "scale(1) translate3d(0,0,0)"; } }
+      }
+      function resetZoomPan() { zoom = 1; panX = 0; panY = 0; applyTransform(); }
+      function getDist(t) { if (t.length < 2) return 0; const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
+
+      bookArea.addEventListener("touchstart", (e) => {
+        if (!bookReady) return;
+        const t = e.touches;
+        if (t.length === 1 && !pinching && !panning) {
+          const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
+          if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+            resetZoomPan(); e.preventDefault(); lastTap = 0; return;
+          }
+          lastTap = now; lastTapX = tx; lastTapY = ty;
+        }
+        if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; e.preventDefault(); }
+        else if (t.length === 1 && zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
+        else if (t.length === 1) { swipeStart = t[0].clientX; swipeActive = true; }
+      }, { passive: false });
+      bookArea.addEventListener("touchmove", (e) => {
+        if (!bookReady) return;
+        const t = e.touches;
+        if (pinching && t.length === 2) { const newDist = getDist(t); let scale = newDist / pinchDist; zoom = Math.min(4, Math.max(1, initZoom * scale)); applyTransform(); e.preventDefault(); }
+        else if (panning && t.length === 1) { const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY; panX = lastPanX + dx; panY = lastPanY + dy; applyTransform(); e.preventDefault(); }
+        else if (swipeActive && zoom <= 1.02) { const dx = t[0].clientX - swipeStart; if (Math.abs(dx) > 20) e.preventDefault(); }
+      }, { passive: false });
+      bookArea.addEventListener("touchend", (e) => {
+        if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
+          const ch = e.changedTouches[0];
+          const dx = ch.clientX - swipeStart;
+          if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
+        }
+        pinching = false; panning = false; swipeActive = false;
       });
-      updateCounter(1);
-      bookReady = true;
-      resetZoomPan();
-      window.addEventListener("resize", () => {
-        if ($book.turn("is")) {
-          setTimeout(() => {
-            const ns = getBookSize();
-            $book.turn("size", ns.width, ns.height);
-            resetZoomPan();
-          }, 80);
-        }
+
+      document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
+      document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
+      document.getElementById("zoomInBtn").addEventListener("click", () => { zoom = Math.min(4, zoom + 0.2); applyTransform(); });
+      document.getElementById("zoomOutBtn").addEventListener("click", () => { zoom = Math.max(1, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); });
+      document.addEventListener("keydown", (e) => { if (bookReady) { if (e.key === "ArrowLeft") $book.turn("previous"); if (e.key === "ArrowRight") $book.turn("next"); } });
+
+      // PDF EXPORT (unchanged)
+      document.getElementById("downloadPDF").addEventListener("click", async function () {
+        const btn = this, original = btn.innerHTML;
+        btn.disabled = true;
+        try {
+          btn.innerHTML = "Preparing...";
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+          const pdfW = pdf.internal.pageSize.getWidth(), pdfH = pdf.internal.pageSize.getHeight();
+          for (let i = 1; i <= TOTAL; i++) {
+            btn.innerHTML = `PDF ${i}/${TOTAL}`;
+            const img = await new Promise((resolve, reject) => {
+              const im = new Image();
+              im.crossOrigin = "anonymous";
+              im.onload = () => resolve(im);
+              im.onerror = reject;
+              im.src = `${IMG_PATH}page${i}.${EXT}`;
+            });
+            const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+            canvas.width = 1400;
+            canvas.height = img.naturalHeight * (1400 / img.naturalWidth);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const data = canvas.toDataURL("image/jpeg", 0.82);
+            if (i > 1) pdf.addPage();
+            pdf.addImage(data, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+            await new Promise(r => setTimeout(r, 30));
+          }
+          btn.innerHTML = "Saving...";
+          pdf.save("slock_catalog.pdf");
+          btn.innerHTML = "Done";
+          setTimeout(() => { btn.innerHTML = original; }, 1500);
+        } catch (err) { alert("PDF generation failed."); btn.innerHTML = original; }
+        finally { btn.disabled = false; }
       });
-      // Force a refresh after turn.js is ready
-      setTimeout(() => refreshCurrentPage(), 200);
-    }
 
-    // ========== ZOOM & PAN ==========
-    let zoom = 1, panX = 0, panY = 0;
-    let initZoom = 1;
-    let pinchDist = 0;
-    let pinching = false, panning = false;
-    let lastX = 0, lastY = 0;
-    let lastPanX = 0, lastPanY = 0;
-    let lastTap = 0, lastTapX = 0, lastTapY = 0;
-    let swipeStart = 0, swipeActive = false;
-
-    function applyTransform() {
-      zoomContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
-      if (zoom > 1.02) $book.css("pointer-events", "none");
-      else { $book.css("pointer-events", "auto"); if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; zoomContainer.style.transform = "scale(1) translate3d(0,0,0)"; } }
-    }
-    function resetZoomPan() { zoom = 1; panX = 0; panY = 0; applyTransform(); }
-    function getDist(t) { if (t.length < 2) return 0; const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
-
-    bookArea.addEventListener("touchstart", (e) => {
-      if (!bookReady) return;
-      const t = e.touches;
-      if (t.length === 1 && !pinching && !panning) {
-        const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
-        if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-          resetZoomPan(); e.preventDefault(); lastTap = 0; return;
-        }
-        lastTap = now; lastTapX = tx; lastTapY = ty;
-      }
-      if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; e.preventDefault(); }
-      else if (t.length === 1 && zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
-      else if (t.length === 1) { swipeStart = t[0].clientX; swipeActive = true; }
-    }, { passive: false });
-    bookArea.addEventListener("touchmove", (e) => {
-      if (!bookReady) return;
-      const t = e.touches;
-      if (pinching && t.length === 2) { const newDist = getDist(t); let scale = newDist / pinchDist; zoom = Math.min(4, Math.max(1, initZoom * scale)); applyTransform(); e.preventDefault(); }
-      else if (panning && t.length === 1) { const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY; panX = lastPanX + dx; panY = lastPanY + dy; applyTransform(); e.preventDefault(); }
-      else if (swipeActive && zoom <= 1.02) { const dx = t[0].clientX - swipeStart; if (Math.abs(dx) > 20) e.preventDefault(); }
-    }, { passive: false });
-    bookArea.addEventListener("touchend", (e) => {
-      if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
-        const ch = e.changedTouches[0];
-        const dx = ch.clientX - swipeStart;
-        if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
-      }
-      pinching = false; panning = false; swipeActive = false;
-    });
-
-    document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
-    document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
-    document.getElementById("zoomInBtn").addEventListener("click", () => { zoom = Math.min(4, zoom + 0.2); applyTransform(); });
-    document.getElementById("zoomOutBtn").addEventListener("click", () => { zoom = Math.max(1, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); });
-    document.addEventListener("keydown", (e) => { if (bookReady) { if (e.key === "ArrowLeft") $book.turn("previous"); if (e.key === "ArrowRight") $book.turn("next"); } });
-
-    // PDF Export
-    document.getElementById("downloadPDF").addEventListener("click", async function() {
-      const btn = this, original = btn.innerHTML;
-      btn.disabled = true;
-      try {
-        btn.innerHTML = "Preparing...";
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-        const pdfW = pdf.internal.pageSize.getWidth(), pdfH = pdf.internal.pageSize.getHeight();
-        for (let i = 1; i <= TOTAL; i++) {
-          btn.innerHTML = `PDF ${i}/${TOTAL}`;
-          const img = await new Promise((resolve, reject) => {
-            const im = new Image();
-            im.crossOrigin = "anonymous";
-            im.onload = () => resolve(im);
-            im.onerror = reject;
-            im.src = `${IMG_PATH}page${i}.${EXT}`;
-          });
-          const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
-          canvas.width = 1400;
-          canvas.height = img.naturalHeight * (1400 / img.naturalWidth);
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const data = canvas.toDataURL("image/jpeg", 0.82);
-          if (i > 1) pdf.addPage();
-          pdf.addImage(data, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
-          await new Promise(r => setTimeout(r, 30));
-        }
-        btn.innerHTML = "Saving...";
-        pdf.save("slock_catalog.pdf");
-        btn.innerHTML = "Done";
-        setTimeout(() => { btn.innerHTML = original; }, 1500);
-      } catch (err) {
-        alert("PDF generation failed.");
-        btn.innerHTML = original;
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  })();
-</script>
+      // Start preloading
+      loadAllImages();
+    })();
+  </script>
 </body>
 
 </html>
