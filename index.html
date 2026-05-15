@@ -59,14 +59,24 @@
     }
 
     .brand {
-      color: white;
-      font-size: 1.25rem;
-      font-weight: 600;
-      letter-spacing: -0.3px;
-      background: linear-gradient(135deg, #fff, #94a3b8);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    /* Logo image styling – clean, responsive, max height */
+    .brand img {
+      height: 42px;
+      width: auto;
+      max-width: 180px;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+      transition: transform 0.2s ease;
+    }
+    .brand img:hover {
+      transform: scale(1.02);
     }
 
     .page-indicator {
@@ -121,7 +131,7 @@
         min-height: 60px;
       }
       .left-tools, .right-tools { gap: 8px; }
-      .brand { font-size: 1rem; }
+      .brand img { height: 32px; max-width: 130px; }
       .control-btn { height: 36px; min-width: 36px; padding: 0 12px; font-size: 0.75rem; }
       .page-indicator { padding: 4px 10px; font-size: 0.75rem; min-width: 70px; }
     }
@@ -183,7 +193,7 @@
       letter-spacing: 0.3px;
     }
 
-    /* ========== TORX LOADING SPINNER ========== */
+    /* Torx Loading Spinner */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -249,7 +259,9 @@
 <div class="app">
   <div class="topbar">
     <div class="left-tools">
-      <div class="brand"><img src="Blue.png" alt="" style="width: 300px; height: 300px;"></div>
+      <div class="brand">
+        <img src="Blue.png" alt="SLOCK Logo">
+      </div>
     </div>
     <div class="right-tools">
       <button class="control-btn" id="prevBtn" aria-label="Previous page">◀</button>
@@ -455,7 +467,7 @@
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
       
-      // Double-tap detection (reliable torx-style)
+      // Double-tap detection
       if (touches.length === 1 && !isPinching && !isPanning) {
         const now = Date.now();
         const tx = touches[0].clientX;
