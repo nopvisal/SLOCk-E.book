@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK Catalog | Interactive Flipbook</title>
-  <!-- Core Libraries -->
+  <title>SLOCK Catalog | Digital Flipbook</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- PDF.js for extraction -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
   <style>
@@ -69,7 +67,7 @@
       color: transparent;
     }
 
-    .status-badge {
+    .pdf-status {
       background: rgba(56, 189, 248, 0.2);
       border: 1px solid rgba(56, 189, 248, 0.5);
       border-radius: 40px;
@@ -125,7 +123,7 @@
       .brand { font-size: 1rem; }
       .control-btn { height: 36px; min-width: 36px; padding: 0 12px; font-size: 0.75rem; }
       .page-indicator { padding: 4px 10px; font-size: 0.75rem; min-width: 70px; }
-      .status-badge { font-size: 0.65rem; padding: 4px 10px; }
+      .pdf-status { font-size: 0.65rem; padding: 4px 10px; }
     }
 
     .book-area {
@@ -222,15 +220,6 @@
       background: #38bdf8;
       transition: width 0.2s ease;
     }
-    .error-message {
-      color: #ef4444;
-      background: rgba(239, 68, 68, 0.1);
-      padding: 12px 24px;
-      border-radius: 12px;
-      margin-top: 20px;
-      text-align: center;
-      font-size: 0.85rem;
-    }
     @media (max-width: 768px) { .torx { width: 60px; height: 60px; } .loader-text { font-size: 0.75rem; } }
   </style>
 </head>
@@ -238,23 +227,23 @@
 <div class="app">
   <div class="topbar">
     <div class="left-tools">
-      <div class="brand">SLOCK</div>
-      <div class="status-badge" id="statusBadge">📄 Auto-Loading PDF</div>
+      <div class="brand">📖 SLOCK</div>
+      <div class="pdf-status" id="pdfStatus">Auto-Loading...</div>
     </div>
     <div class="right-tools">
-      <button class="control-btn" id="prevBtn" disabled>◀</button>
+      <button class="control-btn" id="prevBtn" disabled>◀ Prev</button>
       <div class="page-indicator" id="pageCounter">— / —</div>
-      <button class="control-btn" id="nextBtn" disabled>▶</button>
-      <button class="control-btn" id="zoomOutBtn" disabled>−</button>
-      <button class="control-btn" id="zoomInBtn" disabled>+</button>
-      <button class="control-btn" id="downloadPDF" disabled>📎 PDF</button>
+      <button class="control-btn" id="nextBtn" disabled>Next ▶</button>
+      <button class="control-btn" id="zoomOutBtn" disabled>− Zoom</button>
+      <button class="control-btn" id="zoomInBtn" disabled>Zoom +</button>
+      <button class="control-btn" id="downloadPDFBtn" disabled>📥 Download PDF</button>
     </div>
   </div>
   <div class="book-area" id="bookArea">
     <div class="zoom-container" id="zoomContainer">
       <div id="flipbook"></div>
     </div>
-    <div class="zoom-hint">⬅️ Swipe pages · ✨ Pinch zoom · Double‑tap reset</div>
+    <div class="zoom-hint">👆 Swipe to flip pages · ✨ Pinch to zoom · Double-tap to reset</div>
   </div>
 </div>
 
@@ -269,124 +258,138 @@
   <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
 </div>
 
-<audio id="flipSound" preload="auto" crossorigin="anonymous">
+<audio id="flipSound" preload="auto">
   <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
 </audio>
 
 <script>
   (function() {
-    // Configure PDF.js worker
+    // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
-    let currentPDFDoc = null;
+    let pdfDocument = null;
     let totalPages = 0;
-    let pageCanvases = [];
-    let bookReady = false;
+    let pageImages = [];
+    let flipbookReady = false;
     let flipbookInitialized = false;
     
+    // DOM Elements
     const $flipbook = $("#flipbook");
     const bookArea = document.getElementById("bookArea");
     const zoomContainer = document.getElementById("zoomContainer");
-    const torxLoader = document.getElementById("torxLoader");
+    const loader = document.getElementById("torxLoader");
     const progressFill = document.getElementById("progressFill");
-    const loaderMsgSpan = document.getElementById("loaderMsg");
-    const statusBadge = document.getElementById("statusBadge");
+    const loaderMsg = document.getElementById("loaderMsg");
+    const pdfStatus = document.getElementById("pdfStatus");
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
-    const zoomInBtn = document.getElementById("zoomInBtn");
     const zoomOutBtn = document.getElementById("zoomOutBtn");
-    const downloadPDFBtn = document.getElementById("downloadPDF");
-    const pageCounterSpan = document.getElementById("pageCounter");
+    const zoomInBtn = document.getElementById("zoomInBtn");
+    const downloadBtn = document.getElementById("downloadPDFBtn");
+    const pageCounter = document.getElementById("pageCounter");
     
-    let flipSound = document.getElementById("flipSound");
-    let audioUnlocked = false;
+    // Audio
+    const flipSound = document.getElementById("flipSound");
+    let audioEnabled = false;
     
-    function unlockAudio() {
-      if (audioUnlocked) return;
+    function enableAudio() {
+      if (audioEnabled) return;
       if (flipSound) {
-        flipSound.play().then(() => { flipSound.pause(); flipSound.currentTime = 0; audioUnlocked = true; }).catch(() => {});
+        flipSound.play().then(() => {
+          flipSound.pause();
+          flipSound.currentTime = 0;
+          audioEnabled = true;
+        }).catch(() => {});
       }
-      audioUnlocked = true;
-    }
-    document.body.addEventListener("touchstart", unlockAudio, { once: true });
-    document.body.addEventListener("click", unlockAudio, { once: true });
-    
-    function playFlipSound() { 
-      if (!flipSound || !audioUnlocked) return; 
-      flipSound.pause(); 
-      flipSound.currentTime = 0; 
-      flipSound.volume = 0.6; 
-      flipSound.play().catch(()=>{}); 
+      audioEnabled = true;
     }
     
+    document.body.addEventListener("touchstart", enableAudio, { once: true });
+    document.body.addEventListener("click", enableAudio, { once: true });
+    
+    function playFlip() {
+      if (!flipSound || !audioEnabled) return;
+      flipSound.pause();
+      flipSound.currentTime = 0;
+      flipSound.volume = 0.5;
+      flipSound.play().catch(() => {});
+    }
+    
+    // UI Helpers
     function setControlsEnabled(enabled) {
       prevBtn.disabled = !enabled;
       nextBtn.disabled = !enabled;
-      zoomInBtn.disabled = !enabled;
       zoomOutBtn.disabled = !enabled;
-      downloadPDFBtn.disabled = !enabled;
+      zoomInBtn.disabled = !enabled;
+      downloadBtn.disabled = !enabled;
     }
     
     function showLoader(show, text = "Processing...") {
       if (show) {
-        loaderMsgSpan.innerText = text;
-        torxLoader.style.display = "flex";
-        torxLoader.style.opacity = "1";
+        loaderMsg.innerText = text;
+        loader.style.display = "flex";
+        loader.style.opacity = "1";
       } else {
-        torxLoader.style.opacity = "0";
-        setTimeout(() => { torxLoader.style.display = "none"; }, 400);
+        loader.style.opacity = "0";
+        setTimeout(() => { loader.style.display = "none"; }, 400);
       }
     }
     
-    function updateProgress(percent, msg) {
+    function updateProgress(percent, message) {
       if (progressFill) progressFill.style.width = percent + "%";
-      if (msg) loaderMsgSpan.innerText = msg;
+      if (message) loaderMsg.innerText = message;
     }
     
-    function getOptimalBookSize() {
-      const areaRect = bookArea.getBoundingClientRect();
-      let maxWidth = areaRect.width * 0.92;
-      let maxHeight = areaRect.height * 0.92;
-      const ratio = 0.707;
-      let width = maxWidth;
+    function getBookSize() {
+      const rect = bookArea.getBoundingClientRect();
+      let maxW = rect.width * 0.92;
+      let maxH = rect.height * 0.92;
+      const ratio = 0.707; // A4 portrait ratio
+      let width = maxW;
       let height = width / ratio;
-      if (height > maxHeight) { height = maxHeight; width = height * ratio; }
+      if (height > maxH) {
+        height = maxH;
+        width = height * ratio;
+      }
       return { width: Math.floor(width), height: Math.floor(height) };
     }
     
-    function updateCounter(page) {
-      if (totalPages > 0) pageCounterSpan.innerText = `${page} / ${totalPages}`;
-      else pageCounterSpan.innerText = "— / —";
+    function updatePageCounter(page) {
+      if (totalPages > 0) {
+        pageCounter.innerText = `${page} / ${totalPages}`;
+      }
     }
     
+    // Destroy existing flipbook
     function destroyFlipbook() {
       if (flipbookInitialized && $flipbook.turn("is")) {
         try { $flipbook.turn("destroy"); } catch(e) {}
       }
       $flipbook.empty();
       flipbookInitialized = false;
-      bookReady = false;
+      flipbookReady = false;
       setControlsEnabled(false);
     }
     
-    function initFlipbookWithPages() {
+    // Initialize flipbook with rendered pages
+    function initFlipbook() {
       if (flipbookInitialized) {
         try { $flipbook.turn("destroy"); } catch(e) {}
         $flipbook.empty();
       }
       
-      for (let i = 0; i < pageCanvases.length; i++) {
+      // Add all pages as canvas elements
+      for (let i = 0; i < pageImages.length; i++) {
         const $page = $("<div class='page'></div>");
-        const canvas = pageCanvases[i];
-        if (canvas) {
-          $page.append(canvas);
+        if (pageImages[i]) {
+          $page.append(pageImages[i]);
         } else {
-          $page.html(`<div style="color:white; text-align:center; padding:20px;">⚠️ Page ${i+1}</div>`);
+          $page.html(`<div style="color:white; padding:20px;">Error loading page ${i+1}</div>`);
         }
         $flipbook.append($page);
       }
       
-      const { width, height } = getOptimalBookSize();
+      const { width, height } = getBookSize();
       $flipbook.turn({
         width: width,
         height: height,
@@ -397,93 +400,47 @@
         elevation: 50,
         duration: 500,
         when: {
-          turning: () => playFlipSound(),
-          turned: (e, page) => updateCounter(page)
+          turning: () => playFlip(),
+          turned: (e, page) => updatePageCounter(page)
         }
       });
       
       flipbookInitialized = true;
-      bookReady = true;
-      updateCounter(1);
-      resetZoomAndPan();
+      flipbookReady = true;
+      updatePageCounter(1);
+      resetZoomPan();
       setControlsEnabled(true);
-      statusBadge.innerHTML = "✅ Catalog Ready";
-      statusBadge.style.borderColor = "#10b981";
-      statusBadge.style.color = "#10b981";
+      pdfStatus.innerHTML = `✅ ${totalPages} pages ready`;
+      pdfStatus.style.borderColor = "#10b981";
+      pdfStatus.style.color = "#10b981";
       
-      window.addEventListener("resize", () => {
+      // Handle window resize
+      $(window).off('resize.flipbook').on('resize.flipbook', () => {
         if ($flipbook.turn("is")) {
           setTimeout(() => {
-            const newSize = getOptimalBookSize();
+            const newSize = getBookSize();
             $flipbook.turn("size", newSize.width, newSize.height);
-            resetZoomAndPan();
+            resetZoomPan();
           }, 100);
         }
       });
     }
     
-    // Extract PDF from local file "Slock Catalog.pdf" in same folder
-    async function loadLocalPDF() {
-      showLoader(true, "Looking for SLOCK Catalog PDF...");
-      updateProgress(5, "Searching for PDF file");
-      
-      // Try multiple possible filename variations
-      const possibleNames = [
-        "Slock Catalog.pdf",
-        "Slock_Catalog.pdf",
-        "SLOCK Catalog.pdf",
-        "slock-catalog.pdf",
-        "SlockCatalog.pdf"
-      ];
-      
-      let pdfData = null;
-      let loadedName = "";
-      
-      for (const fileName of possibleNames) {
-        try {
-          updateProgress(8, `Attempting to load: ${fileName}`);
-          const response = await fetch(fileName);
-          if (response.ok) {
-            pdfData = await response.arrayBuffer();
-            loadedName = fileName;
-            break;
-          }
-        } catch (err) {
-          continue;
-        }
-      }
-      
-      if (!pdfData) {
-        showLoader(false);
-        statusBadge.innerHTML = "❌ PDF Not Found";
-        statusBadge.style.borderColor = "#ef4444";
-        statusBadge.style.color = "#ef4444";
-        $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px 20px;">
-          <div style="font-size:2rem; margin-bottom:20px;">📄</div>
-          <div style="font-size:1.1rem; margin-bottom:10px;">Slock Catalog.pdf not found</div>
-          <div style="font-size:0.85rem;">Please ensure "Slock Catalog.pdf" is in the same folder as this HTML file</div>
-          <div style="font-size:0.75rem; margin-top:15px; color:#64748b;">Supported names: Slock Catalog.pdf, Slock_Catalog.pdf, etc.</div>
-        </div>`);
-        return;
-      }
-      
-      updateProgress(10, `Found ${loadedName}, extracting pages...`);
-      await renderPDFtoCanvases(pdfData);
-    }
-    
-    async function renderPDFtoCanvases(pdfData) {
+    // Extract and render PDF pages to canvases
+    async function extractPDFToImages(pdfArrayBuffer) {
       try {
-        const loadingTask = pdfjsLib.getDocument({ data: pdfData, useSystemFonts: true });
+        const loadingTask = pdfjsLib.getDocument({ data: pdfArrayBuffer, useSystemFonts: true });
         const pdf = await loadingTask.promise;
-        currentPDFDoc = pdf;
+        pdfDocument = pdf;
         totalPages = pdf.numPages;
-        updateProgress(12, `📄 ${totalPages} pages found. Rendering with high quality...`);
+        
+        updateProgress(10, `Found ${totalPages} pages. Rendering...`);
         
         const canvases = [];
-        const scale = 2.2; // High quality for crisp display
+        const scale = 2.0; // Good quality for flipbook
         
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-          const percent = 12 + Math.floor((pageNum / totalPages) * 78);
+          const percent = 10 + Math.floor((pageNum / totalPages) * 85);
           updateProgress(percent, `Rendering page ${pageNum}/${totalPages}...`);
           
           const page = await pdf.getPage(pageNum);
@@ -496,93 +453,168 @@
           canvas.style.height = '100%';
           canvas.style.objectFit = 'contain';
           
-          const renderContext = {
+          await page.render({
             canvasContext: context,
             viewport: viewport,
             background: '#111827'
-          };
-          await page.render(renderContext).promise;
+          }).promise;
+          
           canvases.push(canvas);
           
-          // Small yield for UI responsiveness
-          await new Promise(r => setTimeout(r, 5));
+          // Small delay for responsiveness
+          await new Promise(r => setTimeout(r, 10));
         }
         
-        pageCanvases = canvases;
+        pageImages = canvases;
         updateProgress(100, "Complete! Loading flipbook...");
-        statusBadge.innerHTML = `📖 ${totalPages} pages extracted`;
         
         setTimeout(() => {
           showLoader(false);
-          initFlipbookWithPages();
-        }, 200);
+          initFlipbook();
+        }, 300);
         
-      } catch (err) {
-        console.error("PDF Render Error", err);
+      } catch (error) {
+        console.error("PDF extraction error:", error);
         showLoader(false);
-        statusBadge.innerHTML = "❌ Render Failed";
-        statusBadge.style.borderColor = "#ef4444";
-        statusBadge.style.color = "#ef4444";
-        $flipbook.html(`<div style="color:#ef4444; text-align:center; padding:60px 20px;">
-          <div style="font-size:2rem; margin-bottom:20px;">⚠️</div>
-          <div>Failed to render PDF: ${err.message}</div>
+        pdfStatus.innerHTML = "❌ Failed to load PDF";
+        pdfStatus.style.borderColor = "#ef4444";
+        pdfStatus.style.color = "#ef4444";
+        $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px;">
+          <div style="font-size:3rem; margin-bottom:20px;">📄</div>
+          <div style="font-size:1rem; margin-bottom:10px;">Could not load "Slock Catalog.pdf"</div>
+          <div style="font-size:0.85rem;">Make sure the file exists in the same folder as this HTML file</div>
         </div>`);
-        setControlsEnabled(false);
       }
     }
     
-    // ZOOM & PAN functionality
+    // Load PDF from local folder
+    async function loadLocalPDF() {
+      showLoader(true, "Looking for SLOCK Catalog...");
+      updateProgress(5, "Searching for PDF file");
+      
+      // Try different filename variations
+      const fileNames = [
+        "Slock Catalog.pdf",
+        "Slock_Catalog.pdf",
+        "SLOCK Catalog.pdf",
+        "slock-catalog.pdf",
+        "SlockCatalog.pdf",
+        "SLOCK.pdf"
+      ];
+      
+      let pdfData = null;
+      let foundFile = "";
+      
+      for (const name of fileNames) {
+        try {
+          updateProgress(8, `Checking: ${name}`);
+          const response = await fetch(name);
+          if (response.ok) {
+            pdfData = await response.arrayBuffer();
+            foundFile = name;
+            break;
+          }
+        } catch (err) {
+          continue;
+        }
+      }
+      
+      if (!pdfData) {
+        showLoader(false);
+        pdfStatus.innerHTML = "⚠️ PDF not found";
+        pdfStatus.style.borderColor = "#f59e0b";
+        pdfStatus.style.color = "#f59e0b";
+        $flipbook.html(`<div style="color:#94a3b8; text-align:center; padding:60px;">
+          <div style="font-size:3rem; margin-bottom:20px;">📕</div>
+          <div style="font-size:1.1rem; margin-bottom:10px;">Slock Catalog.pdf not found</div>
+          <div style="font-size:0.85rem;">Please place "Slock Catalog.pdf" in the same folder</div>
+          <div style="font-size:0.75rem; margin-top:15px;">Supported names: Slock Catalog.pdf, Slock_Catalog.pdf, SLOCK.pdf</div>
+        </div>`);
+        return;
+      }
+      
+      updateProgress(10, `Found ${foundFile}, extracting pages...`);
+      pdfStatus.innerHTML = `📄 Extracting from ${foundFile}`;
+      await extractPDFToImages(pdfData);
+    }
+    
+    // Zoom & Pan functionality
     let currentZoom = 1, currentPanX = 0, currentPanY = 0;
     let initialZoom = 1, initialPanX = 0, initialPanY = 0;
-    let pinchStartDistance = 0;
+    let pinchStart = 0;
     let isPinching = false, isPanning = false;
     let lastTouchX = 0, lastTouchY = 0, lastPanX = 0, lastPanY = 0;
-    let lastTapTime = 0, lastTapX = 0, lastTapY = 0, tapTimeout = null;
-    let swipeStartX = 0, swipeActive = false;
+    let lastTap = 0, lastTapX = 0, lastTapY = 0, tapTimer = null;
+    let swipeStart = 0, swipeActive = false;
     
     function applyTransform() {
-      if (!zoomContainer) return;
       zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
       if (currentZoom > 1.02) {
         $flipbook.css("pointer-events", "none");
       } else {
         $flipbook.css("pointer-events", "auto");
         if (currentPanX !== 0 || currentPanY !== 0) {
-          currentPanX = 0; currentPanY = 0;
+          currentPanX = 0;
+          currentPanY = 0;
           zoomContainer.style.transform = `translate3d(0px, 0px, 0) scale(1)`;
         }
       }
     }
     
-    function resetZoomAndPan() { currentZoom = 1; currentPanX = 0; currentPanY = 0; applyTransform(); }
-    function getDistance(touches) { if (touches.length < 2) return 0; const dx = touches[0].clientX - touches[1].clientX; const dy = touches[0].clientY - touches[1].clientY; return Math.hypot(dx, dy); }
+    function resetZoomPan() {
+      currentZoom = 1;
+      currentPanX = 0;
+      currentPanY = 0;
+      applyTransform();
+    }
     
+    function getDistance(touches) {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+    
+    // Touch events
     bookArea.addEventListener("touchstart", (e) => {
       const touches = e.touches;
-      if (touches.length === 1 && !isPinching && !isPanning && bookReady) {
+      
+      if (touches.length === 1 && !isPinching && !isPanning && flipbookReady) {
         const now = Date.now();
-        const tx = touches[0].clientX, ty = touches[0].clientY;
-        if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-          resetZoomAndPan();
+        const tx = touches[0].clientX;
+        const ty = touches[0].clientY;
+        if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+          resetZoomPan();
           e.preventDefault();
-          if (tapTimeout) clearTimeout(tapTimeout);
-          lastTapTime = 0; return;
-        } else { lastTapTime = now; lastTapX = tx; lastTapY = ty; if (tapTimeout) clearTimeout(tapTimeout); tapTimeout = setTimeout(() => { lastTapTime = 0; }, 300); }
+          if (tapTimer) clearTimeout(tapTimer);
+          lastTap = 0;
+          return;
+        } else {
+          lastTap = now;
+          lastTapX = tx;
+          lastTapY = ty;
+          if (tapTimer) clearTimeout(tapTimer);
+          tapTimer = setTimeout(() => { lastTap = 0; }, 300);
+        }
       }
-      if (touches.length === 2 && bookReady) {
+      
+      if (touches.length === 2 && flipbookReady) {
         isPinching = true;
-        pinchStartDistance = getDistance(touches);
+        pinchStart = getDistance(touches);
         initialZoom = currentZoom;
-        initialPanX = currentPanX; initialPanY = currentPanY;
+        initialPanX = currentPanX;
+        initialPanY = currentPanY;
         e.preventDefault();
-      } else if (touches.length === 1 && bookReady) {
+      } else if (touches.length === 1 && flipbookReady) {
         if (currentZoom > 1.02) {
           isPanning = true;
-          lastTouchX = touches[0].clientX; lastTouchY = touches[0].clientY;
-          lastPanX = currentPanX; lastPanY = currentPanY;
+          lastTouchX = touches[0].clientX;
+          lastTouchY = touches[0].clientY;
+          lastPanX = currentPanX;
+          lastPanY = currentPanY;
           e.preventDefault();
         } else {
-          swipeStartX = touches[0].clientX;
+          swipeStart = touches[0].clientX;
           swipeActive = true;
         }
       }
@@ -590,19 +622,26 @@
     
     bookArea.addEventListener("touchmove", (e) => {
       const touches = e.touches;
-      if (isPinching && touches.length === 2 && bookReady) {
+      if (isPinching && touches.length === 2 && flipbookReady) {
         const newDist = getDistance(touches);
-        if (pinchStartDistance > 0) {
-          let scale = newDist / pinchStartDistance;
+        if (pinchStart > 0) {
+          let scale = newDist / pinchStart;
           let newZoom = initialZoom * scale;
           newZoom = Math.min(4.0, Math.max(1.0, newZoom));
-          if (newZoom !== currentZoom) { currentZoom = newZoom; currentPanX = initialPanX; currentPanY = initialPanY; applyTransform(); }
+          if (newZoom !== currentZoom) {
+            currentZoom = newZoom;
+            currentPanX = initialPanX;
+            currentPanY = initialPanY;
+            applyTransform();
+          }
         }
         e.preventDefault();
-      } else if (isPanning && touches.length === 1 && bookReady) {
-        const dx = touches[0].clientX - lastTouchX, dy = touches[0].clientY - lastTouchY;
+      } else if (isPanning && touches.length === 1 && flipbookReady) {
+        const dx = touches[0].clientX - lastTouchX;
+        const dy = touches[0].clientY - lastTouchY;
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-          currentPanX = lastPanX + dx; currentPanY = lastPanY + dy;
+          currentPanX = lastPanX + dx;
+          currentPanY = lastPanY + dy;
           const containerRect = bookArea.getBoundingClientRect();
           const flipEl = document.getElementById("flipbook");
           if (flipEl) {
@@ -617,64 +656,122 @@
           applyTransform();
         }
         e.preventDefault();
-      } else if (swipeActive && touches.length === 1 && bookReady && currentZoom <= 1.02) {
-        const deltaX = touches[0].clientX - swipeStartX;
+      } else if (swipeActive && touches.length === 1 && flipbookReady && currentZoom <= 1.02) {
+        const deltaX = touches[0].clientX - swipeStart;
         if (Math.abs(deltaX) > 20) e.preventDefault();
       }
     });
     
     bookArea.addEventListener("touchend", (e) => {
-      if (swipeActive && bookReady && currentZoom <= 1.02 && !isPinching && !isPanning) {
+      if (swipeActive && flipbookReady && currentZoom <= 1.02 && !isPinching && !isPanning) {
         const changed = e.changedTouches[0];
-        if (changed && swipeStartX !== 0) {
-          const deltaX = changed.clientX - swipeStartX;
+        if (changed && swipeStart !== 0) {
+          const deltaX = changed.clientX - swipeStart;
           if (Math.abs(deltaX) > 50) {
             if (deltaX > 0) $flipbook.turn("previous");
             else $flipbook.turn("next");
           }
         }
       }
-      isPinching = false; isPanning = false; swipeActive = false; pinchStartDistance = 0;
+      isPinching = false;
+      isPanning = false;
+      swipeActive = false;
+      pinchStart = 0;
     });
     
-    // Button controls
-    document.getElementById("zoomInBtn").addEventListener("click", () => { if (bookReady) { currentZoom = Math.min(4.0, currentZoom + 0.2); if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; } applyTransform(); } });
-    document.getElementById("zoomOutBtn").addEventListener("click", () => { if (bookReady) { currentZoom = Math.max(1.0, currentZoom - 0.2); if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; } applyTransform(); } });
-    document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $flipbook.turn("previous"); });
-    document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $flipbook.turn("next"); });
+    // Button event listeners
+    zoomInBtn.addEventListener("click", () => {
+      if (flipbookReady) {
+        currentZoom = Math.min(4.0, currentZoom + 0.2);
+        if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+        applyTransform();
+      }
+    });
     
-    // Export PDF from extracted canvases (fast, no re-rendering)
-    document.getElementById("downloadPDF").addEventListener("click", async function() {
-      if (!pageCanvases.length) { alert("No catalog loaded yet."); return; }
-      const btn = this;
+    zoomOutBtn.addEventListener("click", () => {
+      if (flipbookReady) {
+        currentZoom = Math.max(1.0, currentZoom - 0.2);
+        if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+        applyTransform();
+      }
+    });
+    
+    prevBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("previous"); });
+    nextBtn.addEventListener("click", () => { if (flipbookReady) $flipbook.turn("next"); });
+    
+    // Download original PDF directly (fast, no re-rendering)
+    downloadBtn.addEventListener("click", async () => {
+      if (!pdfDocument) {
+        alert("No PDF loaded yet. Please wait for the catalog to load.");
+        return;
+      }
+      
+      const btn = downloadBtn;
       const originalText = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = "📄 Generating...";
+      btn.innerHTML = "📥 Downloading...";
+      
       try {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        // Fetch the original PDF file again for download
+        const fileNames = ["Slock Catalog.pdf", "Slock_Catalog.pdf", "SLOCK Catalog.pdf", "slock-catalog.pdf"];
+        let pdfBlob = null;
         
-        for (let i = 0; i < pageCanvases.length; i++) {
-          btn.innerHTML = `📄 ${i+1}/${pageCanvases.length}`;
-          const canvas = pageCanvases[i];
-          if (!canvas) continue;
-          const imgData = canvas.toDataURL("image/jpeg", 0.92);
-          if (i > 0) pdf.addPage();
-          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+        for (const name of fileNames) {
+          try {
+            const response = await fetch(name);
+            if (response.ok) {
+              pdfBlob = await response.blob();
+              break;
+            }
+          } catch (err) { continue; }
         }
-        btn.innerHTML = "💾 Saving...";
-        pdf.save("slock_catalog_export.pdf");
-        btn.innerHTML = "✅ Saved!";
-        setTimeout(() => { btn.innerHTML = originalText; }, 1500);
-      } catch (err) { alert("PDF save error: " + err.message); btn.innerHTML = originalText; }
-      finally { btn.disabled = false; }
+        
+        if (pdfBlob) {
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'Slock_Catalog.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          btn.innerHTML = "✅ Downloaded!";
+        } else {
+          // Fallback: generate PDF from rendered canvases
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+          const pdfW = pdf.internal.pageSize.getWidth();
+          const pdfH = pdf.internal.pageSize.getHeight();
+          
+          for (let i = 0; i < pageImages.length; i++) {
+            btn.innerHTML = `📥 ${i+1}/${pageImages.length}`;
+            const canvas = pageImages[i];
+            if (canvas) {
+              const imgData = canvas.toDataURL("image/jpeg", 0.92);
+              if (i > 0) pdf.addPage();
+              pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
+            }
+          }
+          pdf.save("Slock_Catalog.pdf");
+          btn.innerHTML = "✅ Saved!";
+        }
+        
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+      } catch (err) {
+        alert("Download failed: " + err.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
     });
     
-    document.addEventListener("keydown", (e) => { if (bookReady) { if (e.key === "ArrowLeft") $flipbook.turn("previous"); if (e.key === "ArrowRight") $flipbook.turn("next"); } });
+    // Keyboard navigation
+    document.addEventListener("keydown", (e) => {
+      if (!flipbookReady) return;
+      if (e.key === "ArrowLeft") $flipbook.turn("previous");
+      if (e.key === "ArrowRight") $flipbook.turn("next");
+    });
     
-    // Auto-load PDF from local folder
+    // Start loading the catalog
     loadLocalPDF();
   })();
 </script>
