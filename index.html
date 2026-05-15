@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-  <title>SLOCK E-BOOK – Final Reliable</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>SLOCK Catalog</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -20,8 +17,7 @@
       user-select: none;
     }
 
-    html,
-    body {
+    html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -37,6 +33,7 @@
       overflow: hidden;
     }
 
+    /* Professional Navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -48,13 +45,13 @@
       padding: 12px 24px;
       background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 99999;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
 
-    .left-tools,
-    .right-tools {
+    .left-tools, .right-tools {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -62,8 +59,10 @@
     }
 
     .brand {
-      font-size: 1.35rem;
-      font-weight: 700;
+      color: white;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
       background: linear-gradient(135deg, #fff, #94a3b8);
       -webkit-background-clip: text;
       background-clip: text;
@@ -78,12 +77,14 @@
       font-size: 0.85rem;
       font-weight: 500;
       color: #e2e8f0;
+      letter-spacing: 0.3px;
       min-width: 85px;
       text-align: center;
     }
 
     .control-btn {
       border: none;
+      outline: none;
       height: 42px;
       min-width: 42px;
       padding: 0 18px;
@@ -94,12 +95,13 @@
       font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
-      transition: 0.2s;
+      transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      letter-spacing: 0.2px;
     }
 
     .control-btn:hover {
@@ -107,7 +109,6 @@
       transform: translateY(-1px);
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
     }
-
     .control-btn:active {
       transform: scale(0.96);
       background: #1e293b;
@@ -119,25 +120,13 @@
         gap: 10px;
         min-height: 60px;
       }
-
-      .brand {
-        font-size: 1.1rem;
-      }
-
-      .control-btn {
-        height: 36px;
-        min-width: 36px;
-        padding: 0 12px;
-        font-size: 0.75rem;
-      }
-
-      .page-indicator {
-        padding: 4px 10px;
-        font-size: 0.75rem;
-        min-width: 70px;
-      }
+      .left-tools, .right-tools { gap: 8px; }
+      .brand { font-size: 1rem; }
+      .control-btn { height: 36px; min-width: 36px; padding: 0 12px; font-size: 0.75rem; }
+      .page-indicator { padding: 4px 10px; font-size: 0.75rem; min-width: 70px; }
     }
 
+    /* Book area */
     .book-area {
       flex: 1;
       position: relative;
@@ -153,14 +142,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      transform-origin: center center;
       will-change: transform;
+      transform-origin: center center;
     }
 
     #flipbook {
       box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
-      transform: translateZ(0);
-      will-change: transform;
     }
 
     .page {
@@ -193,404 +180,472 @@
       color: #cbd5e6;
       pointer-events: none;
       z-index: 20;
+      letter-spacing: 0.3px;
     }
 
-    /* Simple loader overlay */
+    /* ========== TORX LOADING SPINNER ========== */
     .torx-loader {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: radial-gradient(circle at center, #0f172a, #020617);
-      z-index: 200000;
+      z-index: 100000;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      backdrop-filter: blur(8px);
-      transition: opacity 0.3s ease;
-      gap: 20px;
+      backdrop-filter: blur(4px);
+      transition: opacity 0.4s ease;
     }
-
     .torx {
       width: 80px;
       height: 80px;
-      animation: spin 1s linear infinite;
+      position: relative;
+      animation: spin 1.2s linear infinite;
     }
-
     .torx svg {
       width: 100%;
       height: 100%;
-      filter: drop-shadow(0 0 8px #38bdf8);
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
     }
-
     .torx .path {
       stroke: #38bdf8;
       stroke-width: 3;
       stroke-linecap: round;
       fill: none;
       stroke-dasharray: 240;
-      animation: dash 1.2s ease-in-out infinite;
+      stroke-dashoffset: 0;
+      animation: dash 1.5s ease-in-out infinite;
     }
-
     @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
-
     @keyframes dash {
-      0% {
-        stroke-dashoffset: 240;
-      }
-
-      50% {
-        stroke-dashoffset: 80;
-      }
-
-      100% {
-        stroke-dashoffset: 240;
-      }
+      0% { stroke-dashoffset: 240; }
+      50% { stroke-dashoffset: 80; }
+      100% { stroke-dashoffset: 240; }
     }
-
     .loader-text {
+      position: absolute;
+      bottom: 30%;
+      left: 0;
+      right: 0;
       text-align: center;
-      color: #cbd5e6;
-      font-size: 1rem;
-      font-weight: 500;
-      letter-spacing: 2px;
-    }
-
-    .loader-progress {
       color: #94a3b8;
       font-size: 0.9rem;
-      font-family: monospace;
-      margin-top: 10px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      margin-top: 100px;
+    }
+    @media (max-width: 768px) {
+      .torx { width: 60px; height: 60px; }
+      .loader-text { font-size: 0.75rem; bottom: 25%; }
     }
   </style>
 </head>
-
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="left-tools">
-        <div class="brand">SLOCK</div>
-      </div>
-      <div class="right-tools">
-        <button class="control-btn" id="prevBtn">◀</button>
-        <div class="page-indicator" id="pageCounter">1 / 36</div>
-        <button class="control-btn" id="nextBtn">▶</button>
-        <button class="control-btn" id="zoomOutBtn">−</button>
-        <button class="control-btn" id="zoomInBtn">+</button>
-        <button class="control-btn" id="downloadPDF">PDF</button>
-      </div>
+<div class="app">
+  <div class="topbar">
+    <div class="left-tools">
+      <div class="brand">SLOCK</div>
     </div>
-    <div class="book-area" id="bookArea">
-      <div class="zoom-container" id="zoomContainer">
-        <div id="flipbook"></div>
-      </div>
-      <div class="zoom-hint">Pinch zoom · Drag pan · Double-tap reset · Swipe to flip</div>
+    <div class="right-tools">
+      <button class="control-btn" id="prevBtn" aria-label="Previous page">◀</button>
+      <div class="page-indicator" id="pageCounter">1 / 36</div>
+      <button class="control-btn" id="nextBtn" aria-label="Next page">▶</button>
+      <button class="control-btn" id="zoomOutBtn" aria-label="Zoom out">−</button>
+      <button class="control-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
+      <button class="control-btn" id="downloadPDF" aria-label="Download PDF">PDF</button>
     </div>
   </div>
-
-  <div id="torxLoader" class="torx-loader">
-    <div class="torx"><svg viewBox="0 0 100 100">
-        <path class="path"
-          d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71"
-          stroke="currentColor" fill="none" />
-      </svg></div>
-    <div class="loader-text">LOADING CATALOG</div>
-    <div class="loader-progress" id="loadProgress">0 / 36 pages</div>
+  <div class="book-area" id="bookArea">
+    <div class="zoom-container" id="zoomContainer">
+      <div id="flipbook"></div>
+    </div>
+    <div class="zoom-hint">Pinch to zoom · Drag to pan · Double‑tap reset · Swipe to flip</div>
   </div>
+</div>
 
-  <audio id="flipSound" preload="auto" crossorigin="anonymous">
-    <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3"
-      type="audio/mpeg">
-  </audio>
+<!-- Torx Loading Overlay -->
+<div id="torxLoader" class="torx-loader">
+  <div class="torx">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <path class="path" d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71" stroke="currentColor" stroke-width="2" fill="none"/>
+      <circle cx="50" cy="50" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path class="path" d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71" stroke="#38bdf8" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+  <div class="loader-text">LOADING CATALOG</div>
+</div>
 
-  <script>
-    (function () {
-      const TOTAL = 36;
-      const IMG_PATH = "images/";
-      const EXT = "webp";
+<audio id="flipSound" preload="auto" crossorigin="anonymous">
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=page-flip-47177.mp3" type="audio/mpeg">
+</audio>
 
-      // DOM elements
-      const $book = $("#flipbook");
-      const bookArea = document.getElementById("bookArea");
-      const zoomContainer = document.getElementById("zoomContainer");
-      const torxLoader = document.getElementById("torxLoader");
-      const loadProgressSpan = document.getElementById("loadProgress");
+<script>
+  (function() {
+    // ------------------------------- CONFIG ---------------------------------
+    const TOTAL_PAGES = 36;
+    const IMAGE_FOLDER = "images/";
+    const IMAGE_EXT = "webp";
 
-      let bookReady = false;
-      let imagesLoaded = 0;
-      let images = new Array(TOTAL);
-      let failedPages = [];
+    const $flipbook = $("#flipbook");
+    const bookArea = document.getElementById("bookArea");
+    const zoomContainer = document.getElementById("zoomContainer");
+    const torxLoader = document.getElementById("torxLoader");
+    let loadedPages = 0;
+    let bookReady = false;
 
-      // Update progress display
-      function updateProgress() {
-        if (loadProgressSpan) {
-          loadProgressSpan.innerText = `${imagesLoaded} / ${TOTAL} pages`;
-        }
-      }
-
-      // Load a single image with retry
-      function loadImage(pageNum) {
-        return new Promise((resolve) => {
-          let attempts = 0;
-          let maxAttempts = 3;
-          
-          function attemptLoad() {
-            attempts++;
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            if (pageNum <= 4) img.fetchPriority = "high";
-            
-            const timeout = setTimeout(() => {
-              if (attempts < maxAttempts) {
-                console.warn(`Retry ${attempts + 1} for page ${pageNum}`);
-                attemptLoad();
-              } else {
-                console.error(`Failed page ${pageNum}`);
-                failedPages.push(pageNum);
-                images[pageNum - 1] = null;
-                imagesLoaded++;
-                updateProgress();
-                resolve();
-              }
-            }, 20000);
-            
-            img.onload = () => {
-              clearTimeout(timeout);
-              images[pageNum - 1] = img;
-              imagesLoaded++;
-              updateProgress();
-              console.log(`Loaded page ${pageNum} (${imagesLoaded}/${TOTAL})`);
-              resolve();
-            };
-            
-            img.onerror = () => {
-              clearTimeout(timeout);
-              if (attempts < maxAttempts) {
-                console.warn(`Retry ${attempts + 1} for page ${pageNum}`);
-                attemptLoad();
-              } else {
-                console.error(`Failed page ${pageNum}`);
-                failedPages.push(pageNum);
-                images[pageNum - 1] = null;
-                imagesLoaded++;
-                updateProgress();
-                resolve();
-              }
-            };
-            
-            img.src = `${IMG_PATH}page${pageNum}.${EXT}`;
-          }
-          
-          attemptLoad();
-        });
-      }
-
-      // Load all images in parallel
-      async function loadAllImages() {
-        const promises = [];
-        for (let i = 1; i <= TOTAL; i++) {
-          promises.push(loadImage(i));
-        }
-        await Promise.all(promises);
-        
-        // Retry failed pages one more time individually
-        if (failedPages.length > 0) {
-          console.log(`Retrying failed pages: ${failedPages.join(', ')}`);
-          for (let page of failedPages) {
-            await loadImage(page);
-          }
-        }
-        
-        // Build the flipbook after all images are loaded
-        buildFlipbook();
-        
-        // Hide torx loader
+    // ------------------------------- HIDE LOADER WHEN READY -----------------
+    function hideLoader() {
+      if (torxLoader) {
         torxLoader.style.opacity = "0";
         setTimeout(() => {
           torxLoader.style.display = "none";
         }, 400);
-        
-        // Initialize flipbook
-        initFlipbook();
       }
+    }
 
-      // Build flipbook pages from preloaded images
-      function buildFlipbook() {
-        // Clear any existing content
-        $book.empty();
-        
-        // Create pages and insert images
-        for (let i = 0; i < TOTAL; i++) {
-          const $page = $("<div class='page'></div>");
-          const imgData = images[i];
-          if (imgData && imgData instanceof HTMLImageElement && imgData.complete && imgData.naturalWidth > 0) {
-            // Clone the image to avoid issues with turn.js
-            const $img = $("<img>").attr("src", imgData.src).attr("crossorigin", "anonymous");
-            $page.append($img);
-          } else {
-            $page.html(`<div style="color:white;font-size:20px;">⚠️ ${i+1}</div>`);
-          }
-          $book.append($page);
+    // ------------------------------- AUDIO ----------------------------------
+    const flipSound = document.getElementById("flipSound");
+    let audioUnlocked = false;
+    function unlockAudio() {
+      if (audioUnlocked) return;
+      if (flipSound) {
+        flipSound.play().then(() => {
+          flipSound.pause();
+          flipSound.currentTime = 0;
+          audioUnlocked = true;
+        }).catch(() => {});
+      }
+      audioUnlocked = true;
+    }
+    document.body.addEventListener("touchstart", unlockAudio, { once: true });
+    document.body.addEventListener("click", unlockAudio, { once: true });
+
+    function playFlipSound() {
+      if (!flipSound) return;
+      flipSound.pause();
+      flipSound.currentTime = 0;
+      flipSound.volume = 0.65;
+      flipSound.play().catch(() => {});
+    }
+
+    // ------------------------------- BUILD PAGES -----------------------------
+    for (let i = 1; i <= TOTAL_PAGES; i++) {
+      const $page = $("<div class='page'></div>");
+      const $img = $("<img>");
+      $img.attr("src", `${IMAGE_FOLDER}page${i}.${IMAGE_EXT}`);
+      $img.attr("crossorigin", "anonymous");
+      $img.on("load", () => {
+        loadedPages++;
+        if (loadedPages === TOTAL_PAGES) {
+          initFlipbook();
+          hideLoader();
+        }
+      });
+      $img.on("error", () => {
+        $page.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white; background:#111827; font-size:20px;">⚠️ Missing ${i}</div>`);
+        loadedPages++;
+        if (loadedPages === TOTAL_PAGES) {
+          initFlipbook();
+          hideLoader();
+        }
+      });
+      $page.append($img);
+      $flipbook.append($page);
+    }
+
+    // ------------------------------- FLIPBOOK (3D) ---------------------------
+    function getOptimalBookSize() {
+      const areaRect = bookArea.getBoundingClientRect();
+      let maxWidth = areaRect.width * 0.92;
+      let maxHeight = areaRect.height * 0.92;
+      const ratio = 0.707;
+      let width = maxWidth;
+      let height = width / ratio;
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = height * ratio;
+      }
+      return { width: Math.floor(width), height: Math.floor(height) };
+    }
+
+    function updateCounter(page) {
+      document.getElementById("pageCounter").innerText = `${page} / ${TOTAL_PAGES}`;
+    }
+
+    function initFlipbook() {
+      if (bookReady) return;
+      const { width, height } = getOptimalBookSize();
+      $flipbook.turn({
+        width: width,
+        height: height,
+        autoCenter: true,
+        display: "single",
+        acceleration: true,
+        gradients: true,
+        elevation: 50,
+        duration: 600,
+        when: {
+          turning: () => playFlipSound(),
+          turned: (e, page) => updateCounter(page)
+        }
+      });
+      updateCounter(1);
+      bookReady = true;
+      resetZoomAndPan();
+      window.addEventListener("resize", () => {
+        if ($flipbook.turn("is")) {
+          setTimeout(() => {
+            const newSize = getOptimalBookSize();
+            $flipbook.turn("size", newSize.width, newSize.height);
+            resetZoomAndPan();
+          }, 100);
+        }
+      });
+    }
+
+    // ------------------------------- PINCH ZOOM + PAN + SWIPE + DOUBLE-TAP RESET ----
+    let currentZoom = 1;
+    let currentPanX = 0, currentPanY = 0;
+    let initialZoom = 1, initialPanX = 0, initialPanY = 0;
+    let pinchStartDistance = 0;
+    let isPinching = false;
+    let isPanning = false;
+    let lastTouchX = 0, lastTouchY = 0;
+    let lastPanX = 0, lastPanY = 0;
+    
+    let lastTapTime = 0;
+    let lastTapX = 0, lastTapY = 0;
+    let tapTimeout = null;
+    
+    let swipeStartX = 0, swipeActive = false;
+
+    function applyTransform() {
+      zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
+      if (currentZoom > 1.02) {
+        $flipbook.css("pointer-events", "none");
+      } else {
+        $flipbook.css("pointer-events", "auto");
+        if (currentPanX !== 0 || currentPanY !== 0) {
+          currentPanX = 0;
+          currentPanY = 0;
+          zoomContainer.style.transform = `translate3d(0px, 0px, 0) scale(1)`;
         }
       }
+    }
 
-      // Start loading
-      loadAllImages();
+    function resetZoomAndPan() {
+      currentZoom = 1;
+      currentPanX = 0;
+      currentPanY = 0;
+      applyTransform();
+    }
 
-      // ========== FLIPBOOK INIT ==========
-      function getBookSize() {
-        const rect = bookArea.getBoundingClientRect();
-        let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
-        const ratio = 0.707;
-        let w = maxW, h = w / ratio;
-        if (h > maxH) { h = maxH; w = h * ratio; }
-        return { width: Math.floor(w), height: Math.floor(h) };
-      }
+    function getDistance(touches) {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
 
-      function updateCounter(p) {
-        document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
-      }
-
-      // AUDIO
-      const flipSound = document.getElementById("flipSound");
-      let audioUnlocked = false;
-      function unlockAudio() {
-        if (audioUnlocked) return;
-        flipSound.play().then(() => { flipSound.pause(); flipSound.currentTime = 0; }).catch(() => { });
-        audioUnlocked = true;
-      }
-      document.body.addEventListener("touchstart", unlockAudio, { once: true });
-      document.body.addEventListener("click", unlockAudio, { once: true });
-      function playFlipSound() {
-        if (!audioUnlocked) return;
-        flipSound.pause();
-        flipSound.currentTime = 0;
-        flipSound.volume = 0.65;
-        flipSound.play().catch(() => { });
-      }
-
-      function initFlipbook() {
-        if (bookReady) return;
-        const sz = getBookSize();
-        if (sz.width < 50 || sz.height < 50) {
-          setTimeout(initFlipbook, 100);
+    bookArea.addEventListener("touchstart", (e) => {
+      const touches = e.touches;
+      
+      // Double-tap detection (reliable torx-style)
+      if (touches.length === 1 && !isPinching && !isPanning) {
+        const now = Date.now();
+        const tx = touches[0].clientX;
+        const ty = touches[0].clientY;
+        if (now - lastTapTime < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+          resetZoomAndPan();
+          e.preventDefault();
+          if (tapTimeout) clearTimeout(tapTimeout);
+          lastTapTime = 0;
           return;
+        } else {
+          lastTapTime = now;
+          lastTapX = tx;
+          lastTapY = ty;
+          if (tapTimeout) clearTimeout(tapTimeout);
+          tapTimeout = setTimeout(() => { lastTapTime = 0; }, 300);
         }
-        $book.turn({
-          width: sz.width, height: sz.height,
-          autoCenter: true, display: "single",
-          acceleration: true, gradients: true, elevation: 45, duration: 500,
-          when: {
-            turning: () => playFlipSound(),
-            turned: (e, page) => updateCounter(page)
-          }
-        });
-        updateCounter(1);
-        bookReady = true;
-        resetZoomPan();
-        window.addEventListener("resize", () => {
-          if ($book.turn("is")) {
-            setTimeout(() => {
-              const ns = getBookSize();
-              $book.turn("size", ns.width, ns.height);
-              resetZoomPan();
-            }, 80);
-          }
-        });
       }
-
-      // ========== ZOOM & PAN ==========
-      let zoom = 1, panX = 0, panY = 0;
-      let initZoom = 1, pinchDist = 0, pinching = false, panning = false;
-      let lastX = 0, lastY = 0, lastPanX = 0, lastPanY = 0;
-      let lastTap = 0, lastTapX = 0, lastTapY = 0;
-      let swipeStart = 0, swipeActive = false;
-
-      function applyTransform() {
-        zoomContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
-        if (zoom > 1.02) $book.css("pointer-events", "none");
-        else { $book.css("pointer-events", "auto"); if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; zoomContainer.style.transform = "scale(1) translate3d(0,0,0)"; } }
+      
+      if (touches.length === 2) {
+        isPinching = true;
+        pinchStartDistance = getDistance(touches);
+        initialZoom = currentZoom;
+        initialPanX = currentPanX;
+        initialPanY = currentPanY;
+        e.preventDefault();
+      } 
+      else if (touches.length === 1) {
+        if (currentZoom > 1.02) {
+          isPanning = true;
+          lastTouchX = touches[0].clientX;
+          lastTouchY = touches[0].clientY;
+          lastPanX = currentPanX;
+          lastPanY = currentPanY;
+          e.preventDefault();
+        } else {
+          swipeStartX = touches[0].clientX;
+          swipeActive = true;
+        }
       }
-      function resetZoomPan() { zoom = 1; panX = 0; panY = 0; applyTransform(); }
-      function getDist(t) { if (t.length < 2) return 0; const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
+    });
 
-      bookArea.addEventListener("touchstart", (e) => {
-        if (!bookReady) return;
-        const t = e.touches;
-        if (t.length === 1 && !pinching && !panning) {
-          const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
-          if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-            resetZoomPan(); e.preventDefault(); lastTap = 0; return;
+    bookArea.addEventListener("touchmove", (e) => {
+      const touches = e.touches;
+      if (isPinching && touches.length === 2) {
+        const newDist = getDistance(touches);
+        if (pinchStartDistance > 0) {
+          let scale = newDist / pinchStartDistance;
+          let newZoom = initialZoom * scale;
+          newZoom = Math.min(4.0, Math.max(1.0, newZoom));
+          if (newZoom !== currentZoom) {
+            currentZoom = newZoom;
+            currentPanX = initialPanX;
+            currentPanY = initialPanY;
+            applyTransform();
           }
-          lastTap = now; lastTapX = tx; lastTapY = ty;
         }
-        if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; e.preventDefault(); }
-        else if (t.length === 1 && zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
-        else if (t.length === 1) { swipeStart = t[0].clientX; swipeActive = true; }
-      }, { passive: false });
-      bookArea.addEventListener("touchmove", (e) => {
-        if (!bookReady) return;
-        const t = e.touches;
-        if (pinching && t.length === 2) { const newDist = getDist(t); let scale = newDist / pinchDist; zoom = Math.min(4, Math.max(1, initZoom * scale)); applyTransform(); e.preventDefault(); }
-        else if (panning && t.length === 1) { const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY; panX = lastPanX + dx; panY = lastPanY + dy; applyTransform(); e.preventDefault(); }
-        else if (swipeActive && zoom <= 1.02) { const dx = t[0].clientX - swipeStart; if (Math.abs(dx) > 20) e.preventDefault(); }
-      }, { passive: false });
-      bookArea.addEventListener("touchend", (e) => {
-        if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
-          const ch = e.changedTouches[0];
-          const dx = ch.clientX - swipeStart;
-          if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
+        e.preventDefault();
+      } else if (isPanning && touches.length === 1) {
+        const dx = touches[0].clientX - lastTouchX;
+        const dy = touches[0].clientY - lastTouchY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+          currentPanX = lastPanX + dx;
+          currentPanY = lastPanY + dy;
+          const containerRect = bookArea.getBoundingClientRect();
+          const flipEl = document.getElementById("flipbook");
+          const flipRect = flipEl.getBoundingClientRect();
+          const scaledW = flipRect.width * currentZoom;
+          const scaledH = flipRect.height * currentZoom;
+          const maxPanX = Math.max(0, (scaledW - containerRect.width) / 2);
+          const maxPanY = Math.max(0, (scaledH - containerRect.height) / 2);
+          currentPanX = Math.min(maxPanX, Math.max(-maxPanX, currentPanX));
+          currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
+          applyTransform();
         }
-        pinching = false; panning = false; swipeActive = false;
-      });
+        e.preventDefault();
+      } else if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
+        const deltaX = touches[0].clientX - swipeStartX;
+        const deltaY = touches[0].clientY - swipeStartY;
+        if (Math.abs(deltaX) > 20 && Math.abs(deltaX) > Math.abs(deltaY)) {
+          e.preventDefault();
+        }
+      }
+    });
 
-      document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
-      document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
-      document.getElementById("zoomInBtn").addEventListener("click", () => { zoom = Math.min(4, zoom + 0.2); applyTransform(); });
-      document.getElementById("zoomOutBtn").addEventListener("click", () => { zoom = Math.max(1, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); });
-      document.addEventListener("keydown", (e) => { if (bookReady) { if (e.key === "ArrowLeft") $book.turn("previous"); if (e.key === "ArrowRight") $book.turn("next"); } });
-
-      // PDF EXPORT
-      document.getElementById("downloadPDF").addEventListener("click", async function () {
-        const btn = this, original = btn.innerHTML;
-        btn.disabled = true;
-        try {
-          btn.innerHTML = "Preparing...";
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-          const pdfW = pdf.internal.pageSize.getWidth(), pdfH = pdf.internal.pageSize.getHeight();
-          for (let i = 1; i <= TOTAL; i++) {
-            btn.innerHTML = `PDF ${i}/${TOTAL}`;
-            const img = await new Promise((resolve, reject) => {
-              const im = new Image();
-              im.crossOrigin = "anonymous";
-              im.onload = () => resolve(im);
-              im.onerror = reject;
-              im.src = `${IMG_PATH}page${i}.${EXT}`;
-            });
-            const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
-            canvas.width = 1400;
-            canvas.height = img.naturalHeight * (1400 / img.naturalWidth);
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const data = canvas.toDataURL("image/jpeg", 0.82);
-            if (i > 1) pdf.addPage();
-            pdf.addImage(data, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
-            await new Promise(r => setTimeout(r, 30));
+    bookArea.addEventListener("touchend", (e) => {
+      if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning) {
+        const changed = e.changedTouches[0];
+        if (changed && swipeStartX !== 0) {
+          const deltaX = changed.clientX - swipeStartX;
+          if (Math.abs(deltaX) > 50) {
+            if (deltaX > 0) $flipbook.turn("previous");
+            else $flipbook.turn("next");
           }
-          btn.innerHTML = "Saving...";
-          pdf.save("slock_catalog.pdf");
-          btn.innerHTML = "Done";
-          setTimeout(() => { btn.innerHTML = original; }, 1500);
-        } catch (err) { alert("PDF generation failed."); btn.innerHTML = original; }
-        finally { btn.disabled = false; }
-      });
-    })();
-  </script>
+        }
+      }
+      isPinching = false;
+      isPanning = false;
+      swipeActive = false;
+      pinchStartDistance = 0;
+    });
+
+    // ------------------------------- BUTTON ZOOM ----------------------------
+    document.getElementById("zoomInBtn").addEventListener("click", () => {
+      if (!bookReady) return;
+      currentZoom = Math.min(4.0, currentZoom + 0.2);
+      if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+      applyTransform();
+    });
+    document.getElementById("zoomOutBtn").addEventListener("click", () => {
+      if (!bookReady) return;
+      currentZoom = Math.max(1.0, currentZoom - 0.2);
+      if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+      applyTransform();
+    });
+
+    // ------------------------------- BUTTON FLIPPING ------------------------
+    document.getElementById("prevBtn").addEventListener("click", () => {
+      if (bookReady) $flipbook.turn("previous");
+    });
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      if (bookReady) $flipbook.turn("next");
+    });
+
+    // ------------------------------- PDF EXPORT -----------------------------
+    document.getElementById("downloadPDF").addEventListener("click", async function() {
+      const btn = this;
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = "📄 Preparing...";
+      try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        async function loadImage(pg) {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Missing page ${pg}`));
+            img.src = `${IMAGE_FOLDER}page${pg}.${IMAGE_EXT}`;
+          });
+        }
+
+        for (let i = 1; i <= TOTAL_PAGES; i++) {
+          btn.innerHTML = `📄 ${i}/${TOTAL_PAGES}`;
+          const img = await loadImage(i);
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const imgData = canvas.toDataURL("image/jpeg", 0.95);
+          if (i > 1) pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+        }
+        btn.innerHTML = "💾 Saving...";
+        pdf.save("slock_catalog.pdf");
+        btn.innerHTML = "✅ Done!";
+        setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+      } catch (err) {
+        alert("PDF error: " + err.message);
+        btn.innerHTML = originalText;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ------------------------------- KEYBOARD ------------------------------
+    document.addEventListener("keydown", (e) => {
+      if (!bookReady) return;
+      if (e.key === "ArrowLeft") $flipbook.turn("previous");
+      if (e.key === "ArrowRight") $flipbook.turn("next");
+    });
+
+    // Fallback: hide loader after max 8 seconds
+    setTimeout(() => {
+      if (torxLoader && torxLoader.style.display !== "none") {
+        hideLoader();
+        if (!bookReady) initFlipbook();
+      }
+    }, 8000);
+  })();
+</script>
 </body>
-
 </html>
+
+
+the image is kinda slow to load the image why ? fix this
