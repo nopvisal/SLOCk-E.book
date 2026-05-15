@@ -37,7 +37,6 @@
       overflow: hidden;
     }
 
-    /* Clean navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -139,7 +138,6 @@
       }
     }
 
-    /* Book area */
     .book-area {
       flex: 1;
       position: relative;
@@ -181,6 +179,13 @@
       background: #111827;
     }
 
+    /* No spinner for first page, just a background */
+    .page-placeholder {
+      width: 100%;
+      height: 100%;
+      background: #111827;
+    }
+
     .page-loader {
       position: absolute;
       width: 40px;
@@ -216,7 +221,6 @@
       z-index: 20;
     }
 
-    /* Torx loader – disappears extremely fast */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -335,7 +339,6 @@
 
   <script>
     (function () {
-      // ========== CONFIG ==========
       const TOTAL = 36;
       const IMG_PATH = "images/";
       const EXT = "webp";
@@ -346,39 +349,49 @@
       const torx = document.getElementById("torxLoader");
       let bookReady = false;
 
-      // ---------- PRELOAD FIRST 3 PAGES IMMEDIATELY ----------
-      const preloadedImages = {};
-      function preloadPage(num) {
-        if (preloadedImages[num]) return;
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.src = `${IMG_PATH}page${num}.${EXT}`;
-        preloadedImages[num] = img;
-      }
-      // Preload page 1,2,3 instantly (critical for zero spinner)
-      preloadPage(1);
-      preloadPage(2);
-      preloadPage(3);
+      // Preload first page image immediately (critical)
+      const firstPageImg = new Image();
+      firstPageImg.crossOrigin = "anonymous";
+      firstPageImg.src = `${IMG_PATH}page1.${EXT}`;
 
-      // ---------- CREATE PAGES: PAGE 1 GETS IMAGE DIRECTLY, OTHERS GET LOADER ----------
+      // Preload pages 2 and 3 in background
+      const preloadOthers = [2, 3];
+      preloadOthers.forEach(p => {
+        const img = new Image();
+        img.src = `${IMG_PATH}page${p}.${EXT}`;
+      });
+
+      // Create pages: page1 gets a placeholder div (no spinner), others get spinner
       for (let i = 1; i <= TOTAL; i++) {
         const $page = $("<div class='page'></div>");
-        if (i === 1 && preloadedImages[1].complete) {
-          // First page already loaded – attach image directly, no loader
-          const $img = $("<img>").attr("src", preloadedImages[1].src).attr("crossorigin", "anonymous");
-          $page.append($img);
+        if (i === 1) {
+          // Add a simple background placeholder (no spinner)
+          $page.append($("<div class='page-placeholder'></div>"));
         } else {
-          // All other pages start with a spinner
-          const $loader = $("<div class='page-loader'></div>");
-          $page.append($loader);
+          $page.append($("<div class='page-loader'></div>"));
         }
         $book.append($page);
       }
 
-      // Now load remaining images (including page1 if not ready)
-      for (let i = 1; i <= TOTAL; i++) {
+      // Replace page1 placeholder with real image as soon as it loads
+      firstPageImg.onload = () => {
+        const $firstPage = $book.find(".page:first-child");
+        $firstPage.find(".page-placeholder").remove();
+        const $img = $("<img>").attr("src", firstPageImg.src).attr("crossorigin", "anonymous");
+        $firstPage.append($img);
+        // Hide torx loader immediately when first image is ready
+        hideTorxNow();
+      };
+      firstPageImg.onerror = () => {
+        const $firstPage = $book.find(".page:first-child");
+        $firstPage.find(".page-placeholder").remove();
+        $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ 1</div>`);
+        hideTorxNow();
+      };
+
+      // Load remaining pages (2..36) asynchronously
+      for (let i = 2; i <= TOTAL; i++) {
         const $page = $book.find(`.page:eq(${i - 1})`);
-        if (i === 1 && $page.find("img").length) continue; // already has image
         loadPageImage(i, $page);
       }
 
@@ -392,25 +405,17 @@
           $page.append($img);
           if (bookReady && $book.turn("is")) {
             const current = $book.turn("page");
-            $book.turn("page", current); // force repaint if needed
+            $book.turn("page", current); // refresh if needed
           }
-          // Hide torx loader as soon as first page image is displayed
-          if (num === 1) hideTorxNow();
         };
         img.onerror = () => {
           $page.find(".page-loader").remove();
           $page.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ ${num}</div>`);
-          if (num === 1) hideTorxNow();
         };
-        // Use preloaded image if available to avoid double loading
-        if (preloadedImages[num] && preloadedImages[num].complete) {
-          img.src = preloadedImages[num].src;
-        } else {
-          img.src = `${IMG_PATH}page${num}.${EXT}`;
-        }
+        img.src = `${IMG_PATH}page${num}.${EXT}`;
       }
 
-      // ---------- AUDIO (unlock on first touch) ----------
+      // Audio unlock
       const flipSound = document.getElementById("flipSound");
       let audioUnlocked = false;
       function unlockAudio() {
@@ -422,7 +427,7 @@
       document.body.addEventListener("click", unlockAudio, { once: true });
       function playFlipSound() { if (flipSound && audioUnlocked) { flipSound.pause(); flipSound.currentTime = 0; flipSound.volume = 0.65; flipSound.play().catch(() => { }); } }
 
-      // ---------- FLIPBOOK INIT (IMMEDIATE) ----------
+      // Flipbook init
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -460,7 +465,7 @@
       }
       setTimeout(initBook, 20);
 
-      // ---------- HIDE TORX LOADER FAST (max 200ms) ----------
+      // Hide torx loader as soon as page1 image loads OR max 250ms
       let torxHidden = false;
       function hideTorxNow() {
         if (torxHidden) return;
@@ -470,14 +475,10 @@
           setTimeout(() => { torx.style.display = "none"; }, 200);
         }
       }
-      // If first page image already loaded, hide now; else wait for its load
-      if (preloadedImages[1].complete) {
-        hideTorxNow();
-      }
-      // Fallback: force hide after 250ms anyway
+      // Fallback hide after 250ms
       setTimeout(hideTorxNow, 250);
 
-      // ---------- ZOOM + PAN + DOUBLE-TAP + SWIPE (fully functional) ----------
+      // Zoom, pan, swipe, double-tap (fully functional)
       let zoom = 1, panX = 0, panY = 0;
       let initZoom = 1, initPanX = 0, initPanY = 0;
       let pinchDist = 0, pinching = false, panning = false;
@@ -496,7 +497,6 @@
       bookArea.addEventListener("touchstart", (e) => {
         if (!bookReady) return;
         const t = e.touches;
-        // Double tap detection
         if (t.length === 1 && !pinching && !panning) {
           const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
           if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
@@ -548,13 +548,11 @@
         pinching = false; panning = false; swipeActive = false; pinchDist = 0;
       });
 
-      // Buttons
       document.getElementById("zoomInBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.min(4.0, zoom + 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("zoomOutBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.max(1.0, zoom - 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
       document.getElementById("prevBtn").addEventListener("click", () => { if (bookReady) $book.turn("previous"); });
       document.getElementById("nextBtn").addEventListener("click", () => { if (bookReady) $book.turn("next"); });
 
-      // PDF Export
       document.getElementById("downloadPDF").addEventListener("click", async function () {
         const btn = this, orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = "📄 Preparing...";
