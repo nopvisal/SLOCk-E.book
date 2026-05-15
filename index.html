@@ -165,7 +165,6 @@
       align-items: center;
       transform-origin: center center;
       will-change: transform;
-      transition: transform 0.08s linear;
     }
 
     #flipbook {
@@ -241,7 +240,6 @@
       stroke-linecap: round;
       fill: none;
       stroke-dasharray: 240;
-      stroke-dashoffset: 0;
       animation: dash 1.2s ease-in-out infinite;
     }
 
@@ -274,18 +272,6 @@
       font-size: 0.9rem;
       font-weight: 500;
       letter-spacing: 2px;
-    }
-
-    @media (max-width: 768px) {
-      .torx {
-        width: 60px;
-        height: 60px;
-      }
-
-      .loader-text {
-        font-size: 0.75rem;
-        bottom: 25%;
-      }
     }
   </style>
 </head>
@@ -323,14 +309,20 @@
   </div>
 
   <div id="torxLoader" class="torx-loader">
+
     <div class="torx">
       <svg viewBox="0 0 100 100">
         <path class="path"
           d="M50 10 L62 25 L50 40 L38 25 Z M50 60 L62 75 L50 90 L38 75 Z M10 35 L25 47 L10 59 L25 71 M90 35 L75 47 L90 59 L75 71"
-          stroke="currentColor" stroke-width="2" fill="none" />
+          stroke="currentColor"
+          fill="none" />
       </svg>
     </div>
-    <div class="loader-text">LOADING</div>
+
+    <div class="loader-text">
+      LOADING
+    </div>
+
   </div>
 
   <audio id="flipSound" preload="auto" crossorigin="anonymous">
@@ -340,6 +332,7 @@
   </audio>
 
   <script>
+
     (() => {
 
       const TOTAL = 36;
@@ -347,20 +340,29 @@
       const EXT = "webp";
 
       const $book = $("#flipbook");
-      const bookArea = document.getElementById("bookArea");
-      const zoomContainer = document.getElementById("zoomContainer");
-      const torxLoader = document.getElementById("torxLoader");
+
+      const bookArea =
+        document.getElementById("bookArea");
+
+      const zoomContainer =
+        document.getElementById("zoomContainer");
+
+      const torxLoader =
+        document.getElementById("torxLoader");
 
       let bookReady = false;
 
       // CREATE PAGE CONTAINERS
       for (let i = 1; i <= TOTAL; i++) {
-        $("<div class='page'></div>").appendTo($book);
+        $("<div class='page'></div>")
+          .appendTo($book);
       }
 
       // BOOK SIZE
       function getBookSize() {
-        const rect = bookArea.getBoundingClientRect();
+
+        const rect =
+          bookArea.getBoundingClientRect();
 
         let maxW = rect.width * 0.92;
         let maxH = rect.height * 0.92;
@@ -383,14 +385,19 @@
 
       // COUNTER
       function updateCounter(p) {
-        document.getElementById("pageCounter").innerText = `${p} / ${TOTAL}`;
+        document.getElementById(
+          "pageCounter"
+        ).innerText = `${p} / ${TOTAL}`;
       }
 
       // AUDIO
-      const flipSound = document.getElementById("flipSound");
+      const flipSound =
+        document.getElementById("flipSound");
+
       let audioUnlocked = false;
 
       function unlockAudio() {
+
         if (audioUnlocked) return;
 
         flipSound.play()
@@ -403,10 +410,20 @@
         audioUnlocked = true;
       }
 
-      document.body.addEventListener("touchstart", unlockAudio, { once: true });
-      document.body.addEventListener("click", unlockAudio, { once: true });
+      document.body.addEventListener(
+        "touchstart",
+        unlockAudio,
+        { once: true }
+      );
+
+      document.body.addEventListener(
+        "click",
+        unlockAudio,
+        { once: true }
+      );
 
       function playFlipSound() {
+
         if (!audioUnlocked) return;
 
         flipSound.pause();
@@ -416,30 +433,40 @@
         flipSound.play().catch(() => { });
       }
 
-      // INIT FLIPBOOK
+      // INIT BOOK
       function initFlipbook() {
 
         if (bookReady) return;
 
         const sz = getBookSize();
 
-        if (sz.width < 50 || sz.height < 50) {
+        if (
+          sz.width < 50 ||
+          sz.height < 50
+        ) {
           setTimeout(initFlipbook, 50);
           return;
         }
 
         $book.turn({
+
           width: sz.width,
           height: sz.height,
+
           autoCenter: true,
           display: "single",
+
           acceleration: true,
           gradients: true,
+
           elevation: 45,
           duration: 500,
 
           when: {
-            turning: () => playFlipSound(),
+
+            turning: () => {
+              playFlipSound();
+            },
 
             turned: (e, page) => {
               updateCounter(page);
@@ -453,25 +480,43 @@
 
         resetZoomPan();
 
-        window.addEventListener("resize", () => {
+        window.addEventListener(
+          "resize",
+          () => {
 
-          if ($book.turn("is")) {
+            if ($book.turn("is")) {
 
-            setTimeout(() => {
+              setTimeout(() => {
 
-              const ns = getBookSize();
+                const ns =
+                  getBookSize();
 
-              $book.turn("size", ns.width, ns.height);
+                $book.turn(
+                  "size",
+                  ns.width,
+                  ns.height
+                );
 
-              resetZoomPan();
+                resetZoomPan();
 
-            }, 80);
+              }, 80);
+            }
           }
-        });
+        );
       }
 
-      // ULTRA FAST PARALLEL LOADING
-      async function preloadImage(num, priority = false) {
+      // ===============================
+      // SMART IMAGE LOADER
+      // ===============================
+
+      const loadedPages = new Set();
+
+      async function preloadImage(
+        num,
+        priority = false
+      ) {
+
+        if (loadedPages.has(num)) return;
 
         return new Promise((resolve) => {
 
@@ -494,23 +539,37 @@
               }
             } catch (e) { }
 
-            const $page = $book.find(`.page:eq(${num - 1})`);
+            const $page =
+              $book.find(
+                `.page:eq(${num - 1})`
+              );
 
-            if ($page.length && !$page.find("img").length) {
+            if (
+              $page.length &&
+              !$page.find("img").length
+            ) {
 
               const pageImg = $("<img>")
                 .attr("src", img.src)
-                .attr("crossorigin", "anonymous");
+                .attr(
+                  "crossorigin",
+                  "anonymous"
+                );
 
               $page.empty().append(pageImg);
             }
+
+            loadedPages.add(num);
 
             resolve();
           };
 
           img.onerror = () => {
 
-            const $page = $book.find(`.page:eq(${num - 1})`);
+            const $page =
+              $book.find(
+                `.page:eq(${num - 1})`
+              );
 
             $page.html(`
               <div style="
@@ -529,44 +588,100 @@
             resolve();
           };
 
-          img.src = `${IMG_PATH}page${num}.${EXT}`;
+          img.src =
+            `${IMG_PATH}page${num}.${EXT}`;
         });
       }
 
-      // LOAD FIRST PAGES INSTANTLY
-      Promise.all([
-        preloadImage(1, true),
-        preloadImage(2, true),
-        preloadImage(3, true),
-        preloadImage(4, true)
-      ]).then(() => {
+      // ===============================
+      // CONCURRENT LOADER
+      // ===============================
+
+      async function loadQueue(
+        pages,
+        concurrency = 6
+      ) {
+
+        let index = 0;
+
+        async function worker() {
+
+          while (
+            index < pages.length
+          ) {
+
+            const current =
+              pages[index++];
+
+            await preloadImage(current);
+          }
+        }
+
+        const workers = [];
+
+        for (
+          let i = 0;
+          i < concurrency;
+          i++
+        ) {
+          workers.push(worker());
+        }
+
+        await Promise.all(workers);
+      }
+
+      // ===============================
+      // START LOADING
+      // ===============================
+
+      (async () => {
+
+        // PRIORITY PAGES
+        await Promise.all([
+          preloadImage(1, true),
+          preloadImage(2, true),
+          preloadImage(3, true),
+          preloadImage(4, true)
+        ]);
 
         torxLoader.style.opacity = "0";
 
         setTimeout(() => {
-          torxLoader.style.display = "none";
+          torxLoader.style.display =
+            "none";
         }, 300);
 
         initFlipbook();
 
-        // LOAD REMAINING PAGES IN PARALLEL
-        const remaining = [];
+        // REMAINING
+        const remainingPages = [];
 
-        for (let i = 5; i <= TOTAL; i++) {
-          remaining.push(preloadImage(i));
+        for (
+          let i = 5;
+          i <= TOTAL;
+          i++
+        ) {
+          remainingPages.push(i);
         }
 
-        Promise.all(remaining);
-      });
+        // LOAD 6 AT A TIME
+        loadQueue(
+          remainingPages,
+          6
+        );
 
+      })();
+
+      // ===============================
       // ZOOM + PAN
+      // ===============================
+
       let zoom = 1;
+
       let panX = 0;
       let panY = 0;
 
       let initZoom = 1;
-      let initPanX = 0;
-      let initPanY = 0;
 
       let pinchDist = 0;
 
@@ -592,297 +707,528 @@
           `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
 
         if (zoom > 1.02) {
-          $book.css("pointer-events", "none");
+          $book.css(
+            "pointer-events",
+            "none"
+          );
         } else {
-          $book.css("pointer-events", "auto");
+          $book.css(
+            "pointer-events",
+            "auto"
+          );
         }
       }
 
       function resetZoomPan() {
+
         zoom = 1;
+
         panX = 0;
         panY = 0;
+
         applyTransform();
       }
 
       function getDist(t) {
-        const dx = t[0].clientX - t[1].clientX;
-        const dy = t[0].clientY - t[1].clientY;
+
+        const dx =
+          t[0].clientX -
+          t[1].clientX;
+
+        const dy =
+          t[0].clientY -
+          t[1].clientY;
 
         return Math.hypot(dx, dy);
       }
 
-      bookArea.addEventListener("touchstart", (e) => {
+      // TOUCH START
+      bookArea.addEventListener(
+        "touchstart",
+        (e) => {
 
-        if (!bookReady) return;
+          if (!bookReady) return;
 
-        const t = e.touches;
+          const t = e.touches;
 
-        // DOUBLE TAP RESET
-        if (t.length === 1 && !pinching && !panning) {
-
-          const now = Date.now();
-
-          const tx = t[0].clientX;
-          const ty = t[0].clientY;
-
+          // DOUBLE TAP RESET
           if (
-            now - lastTap < 300 &&
-            Math.hypot(tx - lastTapX, ty - lastTapY) < 40
+            t.length === 1 &&
+            !pinching &&
+            !panning
           ) {
-            resetZoomPan();
-            e.preventDefault();
-            lastTap = 0;
-            return;
+
+            const now = Date.now();
+
+            const tx =
+              t[0].clientX;
+
+            const ty =
+              t[0].clientY;
+
+            if (
+              now - lastTap < 300 &&
+              Math.hypot(
+                tx - lastTapX,
+                ty - lastTapY
+              ) < 40
+            ) {
+
+              resetZoomPan();
+
+              e.preventDefault();
+
+              lastTap = 0;
+
+              return;
+            }
+
+            lastTap = now;
+
+            lastTapX = tx;
+            lastTapY = ty;
           }
 
-          lastTap = now;
-          lastTapX = tx;
-          lastTapY = ty;
-        }
+          // PINCH
+          if (t.length === 2) {
 
-        // PINCH
-        if (t.length === 2) {
+            pinching = true;
 
-          pinching = true;
+            pinchDist =
+              getDist(t);
 
-          pinchDist = getDist(t);
+            initZoom = zoom;
 
-          initZoom = zoom;
-          initPanX = panX;
-          initPanY = panY;
-
-          e.preventDefault();
-        }
-
-        // PAN
-        else if (t.length === 1 && zoom > 1.02) {
-
-          panning = true;
-
-          lastX = t[0].clientX;
-          lastY = t[0].clientY;
-
-          lastPanX = panX;
-          lastPanY = panY;
-
-          e.preventDefault();
-        }
-
-        // SWIPE
-        else if (t.length === 1) {
-
-          swipeStart = t[0].clientX;
-          swipeActive = true;
-        }
-      });
-
-      bookArea.addEventListener("touchmove", (e) => {
-
-        if (!bookReady) return;
-
-        const t = e.touches;
-
-        // PINCH
-        if (pinching && t.length === 2) {
-
-          const newDist = getDist(t);
-
-          let scale = newDist / pinchDist;
-
-          zoom = Math.min(4, Math.max(1, initZoom * scale));
-
-          panX = initPanX;
-          panY = initPanY;
-
-          applyTransform();
-
-          e.preventDefault();
-        }
-
-        // PAN
-        else if (panning && t.length === 1) {
-
-          const dx = t[0].clientX - lastX;
-          const dy = t[0].clientY - lastY;
-
-          panX = lastPanX + dx;
-          panY = lastPanY + dy;
-
-          applyTransform();
-
-          e.preventDefault();
-        }
-
-        // SWIPE
-        else if (swipeActive && zoom <= 1.02) {
-
-          const dx = t[0].clientX - swipeStart;
-
-          if (Math.abs(dx) > 20) {
             e.preventDefault();
           }
-        }
 
-      }, { passive: false });
+          // PAN
+          else if (
+            t.length === 1 &&
+            zoom > 1.02
+          ) {
 
-      bookArea.addEventListener("touchend", (e) => {
+            panning = true;
 
-        if (
-          swipeActive &&
-          zoom <= 1.02 &&
-          !pinching &&
-          !panning
-        ) {
+            lastX =
+              t[0].clientX;
 
-          const ch = e.changedTouches[0];
+            lastY =
+              t[0].clientY;
 
-          const dx = ch.clientX - swipeStart;
+            lastPanX = panX;
+            lastPanY = panY;
 
-          if (Math.abs(dx) > 50) {
+            e.preventDefault();
+          }
 
-            if (dx > 0) {
-              $book.turn("previous");
-            } else {
-              $book.turn("next");
+          // SWIPE
+          else if (
+            t.length === 1
+          ) {
+
+            swipeStart =
+              t[0].clientX;
+
+            swipeActive = true;
+          }
+        },
+        { passive: false }
+      );
+
+      // TOUCH MOVE
+      bookArea.addEventListener(
+        "touchmove",
+        (e) => {
+
+          if (!bookReady) return;
+
+          const t = e.touches;
+
+          // PINCH
+          if (
+            pinching &&
+            t.length === 2
+          ) {
+
+            const newDist =
+              getDist(t);
+
+            let scale =
+              newDist /
+              pinchDist;
+
+            zoom = Math.min(
+              4,
+              Math.max(
+                1,
+                initZoom * scale
+              )
+            );
+
+            applyTransform();
+
+            e.preventDefault();
+          }
+
+          // PAN
+          else if (
+            panning &&
+            t.length === 1
+          ) {
+
+            const dx =
+              t[0].clientX -
+              lastX;
+
+            const dy =
+              t[0].clientY -
+              lastY;
+
+            panX =
+              lastPanX + dx;
+
+            panY =
+              lastPanY + dy;
+
+            applyTransform();
+
+            e.preventDefault();
+          }
+
+          // SWIPE
+          else if (
+            swipeActive &&
+            zoom <= 1.02
+          ) {
+
+            const dx =
+              t[0].clientX -
+              swipeStart;
+
+            if (
+              Math.abs(dx) > 20
+            ) {
+              e.preventDefault();
             }
           }
-        }
 
-        pinching = false;
-        panning = false;
-        swipeActive = false;
-      });
+        },
+        { passive: false }
+      );
+
+      // TOUCH END
+      bookArea.addEventListener(
+        "touchend",
+        (e) => {
+
+          if (
+            swipeActive &&
+            zoom <= 1.02 &&
+            !pinching &&
+            !panning
+          ) {
+
+            const ch =
+              e.changedTouches[0];
+
+            const dx =
+              ch.clientX -
+              swipeStart;
+
+            if (
+              Math.abs(dx) > 50
+            ) {
+
+              if (dx > 0) {
+                $book.turn(
+                  "previous"
+                );
+              } else {
+                $book.turn(
+                  "next"
+                );
+              }
+            }
+          }
+
+          pinching = false;
+          panning = false;
+          swipeActive = false;
+        }
+      );
 
       // BUTTONS
-      document.getElementById("prevBtn")
-        .addEventListener("click", () => {
-          if (bookReady) $book.turn("previous");
-        });
+      document.getElementById(
+        "prevBtn"
+      ).addEventListener(
+        "click",
+        () => {
+          if (bookReady)
+            $book.turn(
+              "previous"
+            );
+        }
+      );
 
-      document.getElementById("nextBtn")
-        .addEventListener("click", () => {
-          if (bookReady) $book.turn("next");
-        });
+      document.getElementById(
+        "nextBtn"
+      ).addEventListener(
+        "click",
+        () => {
+          if (bookReady)
+            $book.turn(
+              "next"
+            );
+        }
+      );
 
-      document.getElementById("zoomInBtn")
-        .addEventListener("click", () => {
+      document.getElementById(
+        "zoomInBtn"
+      ).addEventListener(
+        "click",
+        () => {
 
-          zoom = Math.min(4, zoom + 0.2);
+          zoom = Math.min(
+            4,
+            zoom + 0.2
+          );
 
           applyTransform();
-        });
+        }
+      );
 
-      document.getElementById("zoomOutBtn")
-        .addEventListener("click", () => {
+      document.getElementById(
+        "zoomOutBtn"
+      ).addEventListener(
+        "click",
+        () => {
 
-          zoom = Math.max(1, zoom - 0.2);
+          zoom = Math.max(
+            1,
+            zoom - 0.2
+          );
 
           if (zoom <= 1.02) {
+
             panX = 0;
             panY = 0;
           }
 
           applyTransform();
-        });
+        }
+      );
 
       // KEYBOARD
-      document.addEventListener("keydown", (e) => {
+      document.addEventListener(
+        "keydown",
+        (e) => {
 
-        if (!bookReady) return;
+          if (!bookReady) return;
 
-        if (e.key === "ArrowLeft") {
-          $book.turn("previous");
+          if (
+            e.key ===
+            "ArrowLeft"
+          ) {
+            $book.turn(
+              "previous"
+            );
+          }
+
+          if (
+            e.key ===
+            "ArrowRight"
+          ) {
+            $book.turn(
+              "next"
+            );
+          }
         }
-
-        if (e.key === "ArrowRight") {
-          $book.turn("next");
-        }
-      });
+      );
 
       // PDF EXPORT
-      document.getElementById("downloadPDF")
-        .addEventListener("click", async function () {
+      document.getElementById(
+        "downloadPDF"
+      ).addEventListener(
+        "click",
+        async function () {
 
           const btn = this;
-          const original = btn.innerHTML;
+
+          const original =
+            btn.innerHTML;
 
           btn.disabled = true;
 
           try {
 
-            btn.innerHTML = "Preparing...";
+            btn.innerHTML =
+              "Preparing...";
 
-            const { jsPDF } = window.jspdf;
+            const { jsPDF } =
+              window.jspdf;
 
-            const pdf = new jsPDF({
-              orientation: "portrait",
-              unit: "mm",
-              format: "a4",
-              compress: true
-            });
-
-            const w = pdf.internal.pageSize.getWidth();
-            const h = pdf.internal.pageSize.getHeight();
-
-            for (let i = 1; i <= TOTAL; i++) {
-
-              btn.innerHTML = `${i}/${TOTAL}`;
-
-              const img = await new Promise((resolve, reject) => {
-
-                const im = new Image();
-
-                im.crossOrigin = "anonymous";
-
-                im.onload = () => resolve(im);
-                im.onerror = reject;
-
-                im.src = `${IMG_PATH}page${i}.${EXT}`;
+            const pdf =
+              new jsPDF({
+                orientation:
+                  "portrait",
+                unit: "mm",
+                format: "a4",
+                compress: true
               });
 
-              const canvas = document.createElement("canvas");
+            const pdfW =
+              pdf.internal
+                .pageSize
+                .getWidth();
 
-              canvas.width = img.naturalWidth;
-              canvas.height = img.naturalHeight;
+            const pdfH =
+              pdf.internal
+                .pageSize
+                .getHeight();
 
-              const ctx = canvas.getContext("2d");
+            for (
+              let i = 1;
+              i <= TOTAL;
+              i++
+            ) {
 
-              ctx.fillStyle = "#fff";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              btn.innerHTML =
+                `PDF ${i}/${TOTAL}`;
 
-              ctx.drawImage(img, 0, 0);
+              const img =
+                await new Promise(
+                  (
+                    resolve,
+                    reject
+                  ) => {
 
-              const data = canvas.toDataURL("image/jpeg", 0.95);
+                    const im =
+                      new Image();
+
+                    im.crossOrigin =
+                      "anonymous";
+
+                    im.onload =
+                      () =>
+                        resolve(im);
+
+                    im.onerror =
+                      reject;
+
+                    im.src =
+                      `${IMG_PATH}page${i}.${EXT}`;
+                  }
+                );
+
+              const canvas =
+                document.createElement(
+                  "canvas"
+                );
+
+              const ctx =
+                canvas.getContext(
+                  "2d"
+                );
+
+              canvas.width =
+                1400;
+
+              canvas.height =
+                img.naturalHeight *
+                (
+                  1400 /
+                  img.naturalWidth
+                );
+
+              ctx.fillStyle =
+                "#FFFFFF";
+
+              ctx.fillRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+
+              ctx.drawImage(
+                img,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+
+              const data =
+                canvas.toDataURL(
+                  "image/jpeg",
+                  0.82
+                );
 
               if (i > 1) {
                 pdf.addPage();
               }
 
-              pdf.addImage(data, "JPEG", 0, 0, w, h);
+              pdf.addImage(
+                data,
+                "JPEG",
+                0,
+                0,
+                pdfW,
+                pdfH,
+                undefined,
+                "FAST"
+              );
+
+              canvas.width = 1;
+              canvas.height = 1;
+
+              await new Promise(
+                r =>
+                  setTimeout(
+                    r,
+                    30
+                  )
+              );
             }
 
-            pdf.save("slock_catalog.pdf");
+            btn.innerHTML =
+              "Saving...";
 
-            btn.innerHTML = "Done";
+            pdf.save(
+              "slock_catalog.pdf"
+            );
+
+            btn.innerHTML =
+              "Done";
 
             setTimeout(() => {
-              btn.innerHTML = original;
+
+              btn.innerHTML =
+                original;
+
             }, 1500);
 
           } catch (err) {
 
-            alert("PDF Error");
+            console.error(err);
 
-            btn.innerHTML = original;
+            alert(
+              "PDF generation failed."
+            );
+
+            btn.innerHTML =
+              original;
 
           } finally {
 
             btn.disabled = false;
           }
-        });
+        }
+      );
 
     })();
+
   </script>
 
 </body>
