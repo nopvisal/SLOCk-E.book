@@ -37,7 +37,7 @@
       overflow: hidden;
     }
 
-    /* Navbar – clean & professional */
+    /* Navbar */
     .topbar {
       width: 100%;
       min-height: 70px;
@@ -139,7 +139,7 @@
       }
     }
 
-    /* Book area – hidden until torx fades */
+    /* Book area – hidden until ready */
     .book-area {
       flex: 1;
       position: relative;
@@ -203,7 +203,7 @@
       z-index: 20;
     }
 
-    /* Torx loader – covers everything until page1 is ready */
+    /* Torx loader – stays until first page image is fully loaded */
     .torx-loader {
       position: fixed;
       top: 0;
@@ -344,84 +344,85 @@
       const torxLoader = document.getElementById("torxLoader");
       let bookReady = false;
 
-      // ---------- STEP 1: PRELOAD PAGE 1 WITH HIGHEST PRIORITY ----------
+      // ---------- PRELOAD PAGE 1 FIRST (mandatory) ----------
       let page1Loaded = false;
-      const page1Img = new Image();
-      page1Img.crossOrigin = "anonymous";
-      page1Img.fetchPriority = "high";
-      page1Img.onload = () => {
-        page1Loaded = true;
-        // Insert image into page 1 container
-        const $firstPage = $book.find(".page:first-child");
-        if ($firstPage.length) {
-          $firstPage.empty().append($("<img>").attr("src", page1Img.src).attr("crossorigin", "anonymous"));
-        }
-        // Hide torx and reveal book
-        if (torxLoader) {
-          torxLoader.style.opacity = "0";
-          setTimeout(() => {
-            torxLoader.style.display = "none";
-            bookArea.classList.add("visible");
-          }, 400);
-        }
-        // Start flipbook (it will use the already filled page)
-        initFlipbook();
-        // Preload remaining pages in background (non-blocking)
-        for (let i = 2; i <= TOTAL; i++) {
-          preloadPage(i);
-        }
-      };
-      page1Img.onerror = () => {
-        // If page1 fails, still show book with error message
-        page1Loaded = true;
-        const $firstPage = $book.find(".page:first-child");
-        if ($firstPage.length) {
-          $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ Page 1 missing</div>`);
-        }
-        if (torxLoader) {
-          torxLoader.style.opacity = "0";
-          setTimeout(() => {
-            torxLoader.style.display = "none";
-            bookArea.classList.add("visible");
-          }, 400);
-        }
-        initFlipbook();
-      };
-      page1Img.src = `${IMG_PATH}page1.${EXT}`;
+      let page1Image = null;
 
-      // Preload helper (for background pages)
+      // Create all page containers (empty, no spinners)
+      for (let i = 1; i <= TOTAL; i++) {
+        const $page = $("<div class='page'></div>");
+        // Add a solid dark background to avoid white flashes
+        $page.css("background", "#111827");
+        $book.append($page);
+      }
+
+      // Load page 1 with highest priority
+      const img1 = new Image();
+      img1.crossOrigin = "anonymous";
+      img1.fetchPriority = "high";
+      img1.onload = () => {
+        page1Image = img1.src;
+        page1Loaded = true;
+        // Insert image into first page
+        const $firstPage = $book.find(".page:first-child");
+        $firstPage.empty().append($("<img>").attr("src", img1.src).attr("crossorigin", "anonymous"));
+        // Preload pages 2,3,4 immediately (so they are ready when user swipes)
+        preloadPage(2);
+        preloadPage(3);
+        preloadPage(4);
+        // Preload remaining pages in background with lower priority
+        for (let i = 5; i <= TOTAL; i++) {
+          setTimeout(() => preloadPage(i), 100);
+        }
+        // Now that page1 is ready, initialize flipbook and hide torx
+        initFlipbook();
+        // Reveal book area after a tiny delay to let turn.js settle
+        setTimeout(() => {
+          if (torxLoader) {
+            torxLoader.style.opacity = "0";
+            setTimeout(() => {
+              torxLoader.style.display = "none";
+              bookArea.classList.add("visible");
+            }, 400);
+          }
+        }, 50);
+      };
+      img1.onerror = () => {
+        // Fallback: show error on first page
+        page1Loaded = true;
+        const $firstPage = $book.find(".page:first-child");
+        $firstPage.html(`<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white;">⚠️ Page 1 missing</div>`);
+        initFlipbook();
+        if (torxLoader) {
+          torxLoader.style.opacity = "0";
+          setTimeout(() => {
+            torxLoader.style.display = "none";
+            bookArea.classList.add("visible");
+          }, 400);
+        }
+      };
+      img1.src = `${IMG_PATH}page1.${EXT}`;
+
+      // Preload helper – loads image and replaces page content when ready
       function preloadPage(num) {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        img.src = `${IMG_PATH}page${num}.${EXT}`;
         img.onload = () => {
-          // When the image loads, replace the page's content if it's still a placeholder
           const $page = $book.find(`.page:eq(${num - 1})`);
+          // Only replace if page still has no image (avoid double insert)
           if ($page.length && !$page.find("img").length) {
             $page.empty().append($("<img>").attr("src", img.src).attr("crossorigin", "anonymous"));
-            // If flipbook already active, force a tiny repaint
+            // If flipbook is already active, force a small update to avoid glitch
             if (bookReady && $book.turn("is")) {
               const current = $book.turn("page");
               $book.turn("page", current);
             }
           }
         };
+        img.src = `${IMG_PATH}page${num}.${EXT}`;
       }
 
-      // ---------- CREATE ALL PAGES WITH EMPTY PLACEHOLDERS ----------
-      for (let i = 1; i <= TOTAL; i++) {
-        const $page = $("<div class='page'></div>");
-        if (i === 1) {
-          // Page 1 will be filled when preload finishes; leave empty for now
-          $page.append("<div style='width:100%; height:100%; background:#111827;'></div>");
-        } else {
-          // Other pages get a subtle dark placeholder (no spinner visible)
-          $page.append("<div style='width:100%; height:100%; background:#111827;'></div>");
-        }
-        $book.append($page);
-      }
-
-      // ---------- FLIPBOOK INIT (called after page1 is ready) ----------
+      // ---------- FLIPBOOK INIT (only after page1 ready) ----------
       function getBookSize() {
         const rect = bookArea.getBoundingClientRect();
         let maxW = rect.width * 0.92, maxH = rect.height * 0.92;
@@ -439,7 +440,7 @@
         if (bookReady) return;
         const sz = getBookSize();
         if (sz.width < 50 || sz.height < 50) {
-          setTimeout(initFlipbook, 30);
+          setTimeout(initFlipbook, 50);
           return;
         }
         $book.turn({
@@ -500,61 +501,59 @@
       function resetZoomPan() { zoom = 1; panX = 0; panY = 0; applyTransform(); }
       function getDist(t) { if (t.length < 2) return 0; const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
 
-      if (bookArea) {
-        bookArea.addEventListener("touchstart", (e) => {
-          if (!bookReady) return;
-          const t = e.touches;
-          if (t.length === 1 && !pinching && !panning) {
-            const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
-            if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
-              resetZoomPan(); e.preventDefault(); if (tapTimer) clearTimeout(tapTimer); lastTap = 0; return;
-            } else { lastTap = now; lastTapX = tx; lastTapY = ty; if (tapTimer) clearTimeout(tapTimer); tapTimer = setTimeout(() => { lastTap = 0; }, 300); }
+      bookArea.addEventListener("touchstart", (e) => {
+        if (!bookReady) return;
+        const t = e.touches;
+        if (t.length === 1 && !pinching && !panning) {
+          const now = Date.now(), tx = t[0].clientX, ty = t[0].clientY;
+          if (now - lastTap < 300 && Math.hypot(tx - lastTapX, ty - lastTapY) < 40) {
+            resetZoomPan(); e.preventDefault(); if (tapTimer) clearTimeout(tapTimer); lastTap = 0; return;
+          } else { lastTap = now; lastTapX = tx; lastTapY = ty; if (tapTimer) clearTimeout(tapTimer); tapTimer = setTimeout(() => { lastTap = 0; }, 300); }
+        }
+        if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; initPanX = panX; initPanY = panY; e.preventDefault(); }
+        else if (t.length === 1) {
+          if (zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
+          else { swipeStart = t[0].clientX; swipeActive = true; }
+        }
+      });
+      bookArea.addEventListener("touchmove", (e) => {
+        if (!bookReady) return;
+        const t = e.touches;
+        if (pinching && t.length === 2) {
+          const newDist = getDist(t);
+          if (pinchDist > 0) {
+            let s = newDist / pinchDist;
+            let newZ = initZoom * s;
+            newZ = Math.min(4.0, Math.max(1.0, newZ));
+            if (newZ !== zoom) { zoom = newZ; panX = initPanX; panY = initPanY; applyTransform(); }
           }
-          if (t.length === 2) { pinching = true; pinchDist = getDist(t); initZoom = zoom; initPanX = panX; initPanY = panY; e.preventDefault(); }
-          else if (t.length === 1) {
-            if (zoom > 1.02) { panning = true; lastX = t[0].clientX; lastY = t[0].clientY; lastPanX = panX; lastPanY = panY; e.preventDefault(); }
-            else { swipeStart = t[0].clientX; swipeActive = true; }
+          e.preventDefault();
+        } else if (panning && t.length === 1) {
+          const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY;
+          if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            panX = lastPanX + dx; panY = lastPanY + dy;
+            const rect = bookArea.getBoundingClientRect(), flipRect = document.getElementById("flipbook").getBoundingClientRect();
+            const sw = flipRect.width * zoom, sh = flipRect.height * zoom;
+            const maxX = Math.max(0, (sw - rect.width) / 2), maxY = Math.max(0, (sh - rect.height) / 2);
+            panX = Math.min(maxX, Math.max(-maxX, panX)); panY = Math.min(maxY, Math.max(-maxY, panY));
+            applyTransform();
           }
-        });
-        bookArea.addEventListener("touchmove", (e) => {
-          if (!bookReady) return;
-          const t = e.touches;
-          if (pinching && t.length === 2) {
-            const newDist = getDist(t);
-            if (pinchDist > 0) {
-              let s = newDist / pinchDist;
-              let newZ = initZoom * s;
-              newZ = Math.min(4.0, Math.max(1.0, newZ));
-              if (newZ !== zoom) { zoom = newZ; panX = initPanX; panY = initPanY; applyTransform(); }
-            }
-            e.preventDefault();
-          } else if (panning && t.length === 1) {
-            const dx = t[0].clientX - lastX, dy = t[0].clientY - lastY;
-            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-              panX = lastPanX + dx; panY = lastPanY + dy;
-              const rect = bookArea.getBoundingClientRect(), flipRect = document.getElementById("flipbook").getBoundingClientRect();
-              const sw = flipRect.width * zoom, sh = flipRect.height * zoom;
-              const maxX = Math.max(0, (sw - rect.width) / 2), maxY = Math.max(0, (sh - rect.height) / 2);
-              panX = Math.min(maxX, Math.max(-maxX, panX)); panY = Math.min(maxY, Math.max(-maxY, panY));
-              applyTransform();
-            }
-            e.preventDefault();
-          } else if (swipeActive && t.length === 1 && zoom <= 1.02) {
-            const dx = t[0].clientX - swipeStart;
-            if (Math.abs(dx) > 20) e.preventDefault();
+          e.preventDefault();
+        } else if (swipeActive && t.length === 1 && zoom <= 1.02) {
+          const dx = t[0].clientX - swipeStart;
+          if (Math.abs(dx) > 20) e.preventDefault();
+        }
+      });
+      bookArea.addEventListener("touchend", (e) => {
+        if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
+          const ch = e.changedTouches[0];
+          if (ch && swipeStart !== 0) {
+            const dx = ch.clientX - swipeStart;
+            if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
           }
-        });
-        bookArea.addEventListener("touchend", (e) => {
-          if (swipeActive && zoom <= 1.02 && !pinching && !panning) {
-            const ch = e.changedTouches[0];
-            if (ch && swipeStart !== 0) {
-              const dx = ch.clientX - swipeStart;
-              if (Math.abs(dx) > 50) { if (dx > 0) $book.turn("previous"); else $book.turn("next"); }
-            }
-          }
-          pinching = false; panning = false; swipeActive = false; pinchDist = 0;
-        });
-      }
+        }
+        pinching = false; panning = false; swipeActive = false; pinchDist = 0;
+      });
 
       // Buttons
       document.getElementById("zoomInBtn").addEventListener("click", () => { if (bookReady) { zoom = Math.min(4.0, zoom + 0.2); if (zoom <= 1.02) { panX = 0; panY = 0; } applyTransform(); } });
