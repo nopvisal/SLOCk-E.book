@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=()">
+<meta name="theme-color" content="#020617">
     <title>SLOCK Catalog</title>
 
     <!-- Preload only the first 6 critical pages – the rest stream in later -->
@@ -15,8 +17,7 @@
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js">
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js@master/lib/turn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
     <style>
         * {
@@ -938,8 +939,8 @@
 
             document.getElementById("downloadPDF").addEventListener("click", () => {
                 const link = document.createElement("a");
-                link.href = "Slock Catalog.pdf";
-                link.download = "Slock Catalog.pdf";
+                link.href = "slock-catalog.pdf";
+                link.download = "slock-catalog.pdf";
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
