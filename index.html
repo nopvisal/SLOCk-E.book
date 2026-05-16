@@ -354,7 +354,7 @@
                 <circle cx="50" cy="50" r="8" stroke="#38bdf8" stroke-width="2" fill="none" />
             </svg>
         </div>
-        <div class="loader-text">LOADING HIGH-SPEED CATALOG</div>
+        <div class="loader-text">LOADING SLOCK CATALOG</div>
         <div class="loader-progress"><div class="loader-progress-bar" id="loadProgressBar"></div></div>
         <div class="loader-text" id="progressPercent" style="font-size:0.75rem; margin-top:6px;">0%</div>
     </div>
@@ -383,7 +383,7 @@
             const progressBar = document.getElementById("loadProgressBar");
             const progressPercentSpan = document.getElementById("progressPercent");
 
-            // ========== REALISTIC PAGE‑FLIP SOUND (Web Audio API) ==========
+            // ========== REALISTIC BOOK SLIDING SOUND (Web Audio synthesis) ==========
             let audioCtx = null;
 
             function playFlipSound() {
@@ -398,69 +398,77 @@
 
                     const now = audioCtx.currentTime;
 
-                    // 1. Low-frequency paper slide (noise with bandpass)
-                    const slideBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
-                    const slideData = slideBuffer.getChannelData(0);
-                    for (let i = 0; i < slideData.length; i++) {
-                        slideData[i] = (Math.random() * 2 - 1) * 0.5;
-                    }
-                    const slideSource = audioCtx.createBufferSource();
-                    slideSource.buffer = slideBuffer;
-                    const bandpass = audioCtx.createBiquadFilter();
-                    bandpass.type = "bandpass";
-                    bandpass.frequency.value = 800;
-                    bandpass.Q.value = 0.8;
-                    const slideGain = audioCtx.createGain();
-                    slideGain.gain.setValueAtTime(0.25, now);
-                    slideGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-                    slideSource.connect(bandpass);
-                    bandpass.connect(slideGain);
-                    slideGain.connect(audioCtx.destination);
-                    slideSource.start(now);
-                    slideSource.stop(now + 0.15);
-
-                    // 2. Thump / click (short, low frequency)
-                    const thumpBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.06, audioCtx.sampleRate);
+                    // 1. Low thump – the body of the book landing / shifting
+                    const thumpDur = 0.09;
+                    const thumpBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * thumpDur, audioCtx.sampleRate);
                     const thumpData = thumpBuffer.getChannelData(0);
                     for (let i = 0; i < thumpData.length; i++) {
-                        thumpData[i] = (Math.random() * 2 - 1) * 0.7;
+                        // Exponentially decaying white noise (simulates a soft impact)
+                        thumpData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.012));
                     }
                     const thumpSource = audioCtx.createBufferSource();
                     thumpSource.buffer = thumpBuffer;
-                    const lowpass = audioCtx.createBiquadFilter();
-                    lowpass.type = "lowpass";
-                    lowpass.frequency.value = 400;
+                    const thumpLowpass = audioCtx.createBiquadFilter();
+                    thumpLowpass.type = "lowpass";
+                    thumpLowpass.frequency.value = 300;      // deep, woody knock
                     const thumpGain = audioCtx.createGain();
-                    thumpGain.gain.setValueAtTime(0.4, now);
-                    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-                    thumpSource.connect(lowpass);
-                    lowpass.connect(thumpGain);
+                    thumpGain.gain.setValueAtTime(0.45, now);
+                    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + thumpDur);
+                    thumpSource.connect(thumpLowpass);
+                    thumpLowpass.connect(thumpGain);
                     thumpGain.connect(audioCtx.destination);
                     thumpSource.start(now);
-                    thumpSource.stop(now + 0.06);
+                    thumpSource.stop(now + thumpDur);
 
-                    // 3. Tiny high‑frequency click
-                    const clickBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.02, audioCtx.sampleRate);
-                    const clickData = clickBuffer.getChannelData(0);
-                    for (let i = 0; i < clickData.length; i++) {
-                        clickData[i] = (Math.random() * 2 - 1) * 0.9;
+                    // 2. Main sliding swoosh – mid‑range paper rustle
+                    const slideDur = 0.38;
+                    const slideBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * slideDur, audioCtx.sampleRate);
+                    const slideData = slideBuffer.getChannelData(0);
+                    for (let i = 0; i < slideData.length; i++) {
+                        slideData[i] = (Math.random() * 2 - 1);
                     }
-                    const clickSource = audioCtx.createBufferSource();
-                    clickSource.buffer = clickBuffer;
-                    const highpass = audioCtx.createBiquadFilter();
-                    highpass.type = "highpass";
-                    highpass.frequency.value = 1500;
-                    const clickGain = audioCtx.createGain();
-                    clickGain.gain.setValueAtTime(0.2, now);
-                    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-                    clickSource.connect(highpass);
-                    highpass.connect(clickGain);
-                    clickGain.connect(audioCtx.destination);
-                    clickSource.start(now);
-                    clickSource.stop(now + 0.02);
+                    const slideSource = audioCtx.createBufferSource();
+                    slideSource.buffer = slideBuffer;
+                    const bpFilter = audioCtx.createBiquadFilter();
+                    bpFilter.type = "bandpass";
+                    bpFilter.frequency.value = 1100;        // centre of paper rustle
+                    bpFilter.Q.value = 0.9;
+                    const slideGain = audioCtx.createGain();
+                    // Envelope: quick attack, sustain, smooth decay
+                    slideGain.gain.setValueAtTime(0.0, now);
+                    slideGain.gain.linearRampToValueAtTime(0.32, now + 0.02);
+                    slideGain.gain.linearRampToValueAtTime(0.24, now + slideDur - 0.06);
+                    slideGain.gain.exponentialRampToValueAtTime(0.001, now + slideDur);
+                    slideSource.connect(bpFilter);
+                    bpFilter.connect(slideGain);
+                    slideGain.connect(audioCtx.destination);
+                    slideSource.start(now);
+                    slideSource.stop(now + slideDur);
+
+                    // 3. Subtle high‑frequency swipe – loose pages brushing
+                    const swipeDur = 0.22;
+                    const swipeBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * swipeDur, audioCtx.sampleRate);
+                    const swipeData = swipeBuffer.getChannelData(0);
+                    for (let i = 0; i < swipeData.length; i++) {
+                        swipeData[i] = (Math.random() * 2 - 1);
+                    }
+                    const swipeSource = audioCtx.createBufferSource();
+                    swipeSource.buffer = swipeBuffer;
+                    const hpFilter = audioCtx.createBiquadFilter();
+                    hpFilter.type = "highpass";
+                    hpFilter.frequency.value = 3200;
+                    const swipeGain = audioCtx.createGain();
+                    swipeGain.gain.setValueAtTime(0.0, now + 0.03);
+                    swipeGain.gain.linearRampToValueAtTime(0.07, now + 0.06);
+                    swipeGain.gain.exponentialRampToValueAtTime(0.001, now + swipeDur);
+                    swipeSource.connect(hpFilter);
+                    hpFilter.connect(swipeGain);
+                    swipeGain.connect(audioCtx.destination);
+                    swipeSource.start(now + 0.04);
+                    swipeSource.stop(now + 0.04 + swipeDur);
 
                 } catch (e) {
-                    // Fail silently
+                    // Fail silently – the experience stays uninterrupted
                 }
             }
 
