@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
     <title>SLOCK Catalog</title>
 
-    <!-- Preload only the first 6 critical pages – the rest stream in later -->
     <link rel="preload" as="image" href="images/page1.webp" />
     <link rel="preload" as="image" href="images/page2.webp" />
     <link rel="preload" as="image" href="images/page3.webp" />
@@ -18,6 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js">
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+
     <style>
         * {
             margin: 0;
@@ -32,7 +32,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background: radial-gradient(circle at top, #1e293b 0%, #0f172a 45%, #020617 100%);
+            background: radial-gradient(ellipse at 50% 30%, #1a2332 0%, #0f172a 40%, #060d1a 100%);
             font-family: 'Inter', sans-serif;
         }
 
@@ -44,6 +44,7 @@
             overflow: hidden;
         }
 
+        /* ── Top bar ── */
         .topbar {
             width: 100%;
             min-height: 70px;
@@ -53,14 +54,13 @@
             align-items: center;
             gap: 16px;
             padding: 12px 24px;
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(15, 23, 42, 0.88);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             z-index: 99999;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
         }
-
         .left-tools,
         .right-tools {
             display: flex;
@@ -68,9 +68,7 @@
             gap: 12px;
             flex-wrap: wrap;
         }
-
         .brand {
-            color: white;
             font-size: 1.25rem;
             font-weight: 600;
             letter-spacing: -0.3px;
@@ -79,9 +77,8 @@
             background-clip: text;
             color: transparent;
         }
-
         .page-indicator {
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(4px);
             padding: 6px 14px;
             border-radius: 40px;
@@ -93,7 +90,6 @@
             text-align: center;
             transition: all 0.25s ease;
         }
-
         .control-btn {
             border: none;
             outline: none;
@@ -115,11 +111,10 @@
             gap: 6px;
             letter-spacing: 0.2px;
         }
-
         .control-btn:hover {
             background: #334155;
             transform: translateY(-1px);
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
         }
         .control-btn:active {
             transform: scale(0.96);
@@ -128,13 +123,13 @@
 
         @media (max-width: 680px) {
             .topbar {
-                padding: 10px 16px;
-                gap: 10px;
-                min-height: 60px;
+                padding: 10px 14px;
+                gap: 8px;
+                min-height: 58px;
             }
             .left-tools,
             .right-tools {
-                gap: 8px;
+                gap: 6px;
             }
             .brand {
                 font-size: 1rem;
@@ -142,24 +137,27 @@
             .control-btn {
                 height: 36px;
                 min-width: 36px;
-                padding: 0 12px;
+                padding: 0 11px;
                 font-size: 0.75rem;
             }
             .page-indicator {
                 padding: 4px 10px;
-                font-size: 0.75rem;
-                min-width: 70px;
+                font-size: 0.72rem;
+                min-width: 65px;
             }
         }
 
+        /* ── Book area ── */
         .book-area {
             flex: 1;
             position: relative;
             overflow: hidden;
-            background: #020617;
+            background: transparent;
             touch-action: none;
+            /* critical: lets turn.js receive touch events */;
         }
 
+        /* ── Zoom container ── */
         .zoom-container {
             position: relative;
             width: 100%;
@@ -172,12 +170,21 @@
             transition: transform 0.08s ease-out;
         }
         .zoom-container.animating {
-            transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.4, 1.1);
         }
 
+        /* ── Flipbook – the 3D book ── */
         #flipbook {
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
             cursor: grab;
+            /* ── Multi‑layer 3D book shadow ── */
+            box-shadow:
+                0 3px 6px rgba(0, 0, 0, 0.55),
+                0 12px 28px rgba(0, 0, 0, 0.42),
+                0 30px 70px rgba(0, 0, 0, 0.35),
+                10px 22px 48px rgba(0, 0, 0, 0.3);
+            border-radius: 2px 6px 6px 2px;
+            transition: box-shadow 0.35s ease;
         }
         #flipbook:active {
             cursor: grabbing;
@@ -186,7 +193,7 @@
             cursor: grabbing;
         }
 
-        /* Cursor hints for draggable page edges */
+        /* ── Pages ── */
         #flipbook .page {
             background: #111827;
             overflow: hidden;
@@ -195,7 +202,6 @@
             align-items: center;
             position: relative;
         }
-
         #flipbook .page img {
             width: 100%;
             height: 100%;
@@ -205,7 +211,6 @@
             background: #111827;
             transition: opacity 0.18s ease;
         }
-
         #flipbook .page img.lazy-load {
             opacity: 0;
         }
@@ -231,6 +236,82 @@
             }
         }
 
+        /* ── SPINE CREASE – realistic 3D fold shadow ── */
+        /* Default (single mode / odd pages): crease on LEFT edge (binding) */
+        #flipbook .page::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 28px;
+            background: linear-gradient(to right,
+                    rgba(0, 0, 0, 0.32) 0%,
+                    rgba(0, 0, 0, 0.14) 25%,
+                    rgba(255, 255, 255, 0.03) 40%,
+                    transparent 100%);
+            pointer-events: none;
+            z-index: 5;
+            transition: opacity 0.25s ease;
+        }
+
+        /* ── DOUBLE DISPLAY overrides ── */
+        /* Left page (even) → crease on RIGHT edge */
+        #flipbook.display-double .even::after {
+            left: auto;
+            right: 0;
+            background: linear-gradient(to left,
+                    rgba(0, 0, 0, 0.32) 0%,
+                    rgba(0, 0, 0, 0.14) 25%,
+                    rgba(255, 255, 255, 0.03) 40%,
+                    transparent 100%);
+        }
+        /* Right page (odd) → crease on LEFT edge */
+        #flipbook.display-double .odd::after {
+            left: 0;
+            right: auto;
+            background: linear-gradient(to right,
+                    rgba(0, 0, 0, 0.32) 0%,
+                    rgba(0, 0, 0, 0.14) 25%,
+                    rgba(255, 255, 255, 0.03) 40%,
+                    transparent 100%);
+        }
+
+        /* ── Outer page‑edge shadow (free edge opposite spine) ── */
+        #flipbook .page::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 14px;
+            background: linear-gradient(to left,
+                    rgba(0, 0, 0, 0.18) 0%,
+                    rgba(0, 0, 0, 0.04) 50%,
+                    transparent 100%);
+            pointer-events: none;
+            z-index: 5;
+            transition: opacity 0.25s ease;
+        }
+        /* In double mode, left pages have free edge on LEFT, not right */
+        #flipbook.display-double .even::before {
+            left: 0;
+            right: auto;
+            background: linear-gradient(to right,
+                    rgba(0, 0, 0, 0.18) 0%,
+                    rgba(0, 0, 0, 0.04) 50%,
+                    transparent 100%);
+        }
+        #flipbook.display-double .odd::before {
+            left: auto;
+            right: 0;
+            background: linear-gradient(to left,
+                    rgba(0, 0, 0, 0.18) 0%,
+                    rgba(0, 0, 0, 0.04) 50%,
+                    transparent 100%);
+        }
+
+        /* ── Zoom hint badge ── */
         .zoom-hint {
             position: absolute;
             bottom: 20px;
@@ -252,6 +333,7 @@
             opacity: 1;
         }
 
+        /* ── Torx loader ── */
         .torx-loader {
             position: fixed;
             top: 0;
@@ -383,11 +465,7 @@
             const TOTAL_PAGES = 36;
             const IMAGE_FOLDER = "images/";
             const IMAGE_EXT = "webp";
-
-            // Display mode threshold: >= 900px → double-page spread (desktop / iPad landscape)
             const DOUBLE_DISPLAY_THRESHOLD = 900;
-
-            // Show flipbook as soon as page 1 is loaded
             const MIN_PAGES_FOR_TURN = 1;
             const PRELOAD_RADIUS = 18;
             const MAX_CONCURRENT_PRELOADS = 12;
@@ -397,7 +475,7 @@
             let bookReady = false;
             let activePreloads = 0;
             let preloadQueue = [];
-            let currentDisplayMode = 'single'; // 'single' | 'double'
+            let currentDisplayMode = 'single';
             let lastFlipSoundTime = 0;
 
             const $flipbook = $("#flipbook");
@@ -408,27 +486,22 @@
             const progressPercentSpan = document.getElementById("progressPercent");
             const zoomHint = document.getElementById("zoomHint");
 
-            // ========== REALISTIC BOOK SLIDING SOUND (Web Audio synthesis) ==========
+            // ========== REALISTIC BOOK SLIDING SOUND ==========
             let audioCtx = null;
 
             function playFlipSound() {
                 if (!bookReady) return;
-                // Debounce: only play once every 280ms to avoid overlapping during rapid drags
                 const now = Date.now();
                 if (now - lastFlipSoundTime < 280) return;
                 lastFlipSoundTime = now;
-
                 try {
                     if (!audioCtx) {
                         audioCtx = new(window.AudioContext || window.webkitAudioContext)();
                     }
-                    if (audioCtx.state === 'suspended') {
-                        audioCtx.resume();
-                    }
-
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
                     const ctxNow = audioCtx.currentTime;
 
-                    // 1. Low thump – the body of the book landing / shifting
+                    // Low thump
                     const thumpDur = 0.09;
                     const thumpBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * thumpDur, audioCtx.sampleRate);
                     const thumpData = thumpBuffer.getChannelData(0);
@@ -449,13 +522,11 @@
                     thumpSource.start(ctxNow);
                     thumpSource.stop(ctxNow + thumpDur);
 
-                    // 2. Main sliding swoosh – mid‑range paper rustle
+                    // Mid swoosh
                     const slideDur = 0.38;
                     const slideBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * slideDur, audioCtx.sampleRate);
                     const slideData = slideBuffer.getChannelData(0);
-                    for (let i = 0; i < slideData.length; i++) {
-                        slideData[i] = (Math.random() * 2 - 1);
-                    }
+                    for (let i = 0; i < slideData.length; i++) slideData[i] = (Math.random() * 2 - 1);
                     const slideSource = audioCtx.createBufferSource();
                     slideSource.buffer = slideBuffer;
                     const bpFilter = audioCtx.createBiquadFilter();
@@ -473,13 +544,11 @@
                     slideSource.start(ctxNow);
                     slideSource.stop(ctxNow + slideDur);
 
-                    // 3. Subtle high‑frequency swipe – loose pages brushing
+                    // High swipe
                     const swipeDur = 0.22;
                     const swipeBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * swipeDur, audioCtx.sampleRate);
                     const swipeData = swipeBuffer.getChannelData(0);
-                    for (let i = 0; i < swipeData.length; i++) {
-                        swipeData[i] = (Math.random() * 2 - 1);
-                    }
+                    for (let i = 0; i < swipeData.length; i++) swipeData[i] = (Math.random() * 2 - 1);
                     const swipeSource = audioCtx.createBufferSource();
                     swipeSource.buffer = swipeBuffer;
                     const hpFilter = audioCtx.createBiquadFilter();
@@ -494,25 +563,17 @@
                     swipeGain.connect(audioCtx.destination);
                     swipeSource.start(ctxNow + 0.04);
                     swipeSource.stop(ctxNow + 0.04 + swipeDur);
-
-                } catch (e) {
-                    // Fail silently
-                }
+                } catch (e) { /* silent */ }
             }
 
-            // Unlock AudioContext on first user interaction
             function unlockAudio() {
-                if (!audioCtx) {
-                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
+                if (!audioCtx) audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
             }
             document.body.addEventListener("touchstart", unlockAudio, { once: true });
             document.body.addEventListener("mousedown", unlockAudio, { once: true });
 
-            // --- Display mode detection ---
+            // --- Display mode ---
             function getDisplayMode() {
                 return window.innerWidth >= DOUBLE_DISPLAY_THRESHOLD ? 'double' : 'single';
             }
@@ -523,20 +584,15 @@
                 const percent = Math.floor((loadedCount / TOTAL_PAGES) * 100);
                 if (progressBar) progressBar.style.width = percent + "%";
                 if (progressPercentSpan) progressPercentSpan.innerText = percent + "%";
-
                 if (!bookReady && loadedCount >= MIN_PAGES_FOR_TURN) {
                     initFlipbookEarly();
                 }
             }
 
-            // --- Fast image loader ---
+            // --- Image loader ---
             function loadImageForPage(pageNum, imgElement, placeholderDiv) {
                 return new Promise((resolve) => {
-                    if (pagesLoadedStatus[pageNum]) {
-                        resolve(true);
-                        return;
-                    }
-
+                    if (pagesLoadedStatus[pageNum]) { resolve(true); return; }
                     const imgSrc = `${IMAGE_FOLDER}page${pageNum}.${IMAGE_EXT}`;
                     const img = new Image();
                     img.decoding = "async";
@@ -579,7 +635,6 @@
                 $img.attr("alt", `page ${pageNum}`);
                 $page.append(placeholderDiv);
                 $page.append($img);
-
                 const imgEl = $img[0];
                 const placeEl = placeholderDiv;
                 pageElements[pageNum] = { $page, imgEl, placeEl, loaded: false };
@@ -587,7 +642,6 @@
             }
 
             function buildAllPageElements() {
-                // Clear existing references
                 pageElements = new Array(TOTAL_PAGES + 1).fill(null);
                 $flipbook.empty();
                 for (let i = 1; i <= TOTAL_PAGES; i++) {
@@ -595,7 +649,7 @@
                 }
             }
 
-            // --- Background preloader ---
+            // --- Smart preloader ---
             let currentPreloadCenter = 1;
             let preloadScheduled = false;
 
@@ -650,15 +704,13 @@
                 for (const p of criticalPages) {
                     const elem = pageElements[p];
                     if (elem && !pagesLoadedStatus[p]) {
-                        loadImageForPage(p, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded =
-                                true; });
+                        loadImageForPage(p, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
                     }
                 }
                 for (let i = 7; i <= TOTAL_PAGES; i++) {
                     const elem = pageElements[i];
                     if (elem && !pagesLoadedStatus[i]) {
-                        loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded =
-                                true; });
+                        loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
                     }
                 }
                 scheduleSmartPreload(1);
@@ -669,26 +721,19 @@
                 const areaRect = bookArea.getBoundingClientRect();
                 const maxWidth = areaRect.width * 0.92;
                 const maxHeight = areaRect.height * 0.92;
-
                 if (displayMode === 'double') {
-                    // Two portrait pages side by side → landscape aspect ~1.414
                     const ratio = 1.414;
                     let width = maxWidth;
                     let height = width / ratio;
-                    if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * ratio;
-                    }
+                    if (height > maxHeight) { height = maxHeight;
+                        width = height * ratio; }
                     return { width: Math.floor(width), height: Math.floor(height) };
                 } else {
-                    // Single portrait page → aspect ~0.707
                     const ratio = 0.707;
                     let width = maxWidth;
                     let height = width / ratio;
-                    if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * ratio;
-                    }
+                    if (height > maxHeight) { height = maxHeight;
+                        width = height * ratio; }
                     return { width: Math.floor(width), height: Math.floor(height) };
                 }
             }
@@ -697,7 +742,6 @@
             function updateCounter(page) {
                 const displayMode = currentDisplayMode;
                 const counterEl = document.getElementById("pageCounter");
-
                 if (displayMode === 'double') {
                     if (page <= 1) {
                         counterEl.innerText = `1 / ${TOTAL_PAGES}`;
@@ -710,11 +754,10 @@
                 } else {
                     counterEl.innerText = `${page} / ${TOTAL_PAGES}`;
                 }
-
                 if (bookReady) scheduleSmartPreload(page);
             }
 
-            // --- Flipbook initialization ---
+            // --- Flipbook init ---
             function initFlipbook(displayMode, targetPage) {
                 if (bookReady) {
                     try { $flipbook.turn("destroy"); } catch (e) {}
@@ -725,7 +768,6 @@
                 if (pageElements.filter(Boolean).length < TOTAL_PAGES) {
                     buildAllPageElements();
                 } else {
-                    // Ensure all page elements are appended
                     $flipbook.empty();
                     for (let i = 1; i <= TOTAL_PAGES; i++) {
                         if (pageElements[i] && pageElements[i].$page) {
@@ -738,6 +780,9 @@
 
                 currentDisplayMode = displayMode;
                 const { width, height } = getOptimalBookSize(displayMode);
+
+                // Set display class for CSS crease targeting
+                $flipbook.removeClass('display-single display-double').addClass('display-' + displayMode);
 
                 $flipbook.turn({
                     width: width,
@@ -760,7 +805,6 @@
                             scheduleSmartPreload(page);
                         },
                         missing: function(e, pages) {
-                            // Handle any missing pages gracefully
                             for (let i = 0; i < pages.length; i++) {
                                 const p = pages[i];
                                 if (p >= 1 && p <= TOTAL_PAGES && !pagesLoadedStatus[p]) {
@@ -788,7 +832,7 @@
                     setTimeout(() => { if (torxLoader) torxLoader.style.display = "none"; }, 350);
                 }
 
-                // Kick off loading for any unloaded pages
+                // Load any remaining unloaded pages
                 for (let i = 1; i <= TOTAL_PAGES; i++) {
                     if (!pagesLoadedStatus[i]) {
                         const elem = pageElements[i];
@@ -806,7 +850,7 @@
                 initFlipbook(displayMode, 1);
             }
 
-            // --- Zoom & Pan state ---
+            // ─────────────── ZOOM & PAN STATE ───────────────
             let currentZoom = 1,
                 currentPanX = 0,
                 currentPanY = 0;
@@ -824,11 +868,6 @@
                 lastTapX = 0,
                 lastTapY = 0,
                 tapTimeout = null;
-            let swipeStartX = 0,
-                swipeStartY = 0,
-                swipeActive = false,
-                swipeHandledByTurn = false;
-
             let mouseIsDown = false,
                 mouseStartX = 0,
                 mouseStartY = 0,
@@ -839,16 +878,18 @@
             function applyTransform(animate = false) {
                 if (animate) {
                     zoomContainer.classList.add("animating");
-                    setTimeout(() => zoomContainer.classList.remove("animating"), 260);
+                    setTimeout(() => zoomContainer.classList.remove("animating"), 280);
                 } else {
                     zoomContainer.classList.remove("animating");
                 }
                 zoomContainer.style.transform = `translate3d(${currentPanX}px, ${currentPanY}px, 0) scale(${currentZoom})`;
 
                 if (currentZoom > 1.02) {
+                    // Zoomed in → disable turn.js interaction, enable our pan
                     $flipbook.css("pointer-events", "none");
                     zoomHint.classList.add("visible");
                 } else {
+                    // Zoomed out → give control back to turn.js for drag‑to‑turn
                     $flipbook.css("pointer-events", "auto");
                     zoomHint.classList.remove("visible");
                     if (currentPanX !== 0 || currentPanY !== 0) {
@@ -884,12 +925,17 @@
                 currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
             }
 
-            // ------- TOUCH EVENTS -------
+            function isZoomedIn() {
+                return currentZoom > 1.02;
+            }
+
+            // ─────────────── TOUCH EVENTS ───────────────
             bookArea.addEventListener("touchstart", function(e) {
+                if (!bookReady) return;
                 const touches = e.touches;
 
-                // Double-tap detection for zoom reset (works regardless of zoom level)
-                if (touches.length === 1 && !isPinching && !isPanning) {
+                // ── Double‑tap detection (only when zoomed in, to reset zoom) ──
+                if (isZoomedIn() && touches.length === 1 && !isPinching && !isPanning) {
                     const now = Date.now();
                     const tx = touches[0].clientX;
                     const ty = touches[0].clientY;
@@ -908,11 +954,10 @@
                     }
                 }
 
-                // Two-finger pinch → zoom (always intercept)
+                // ── Two‑finger pinch → always intercept for zoom ──
                 if (touches.length === 2) {
                     isPinching = true;
                     isPanning = false;
-                    swipeActive = false;
                     pinchStartDistance = getDistance(touches);
                     initialZoom = currentZoom;
                     initialPanX = currentPanX;
@@ -921,11 +966,10 @@
                     return;
                 }
 
-                // One finger when zoomed in → pan
-                if (touches.length === 1 && currentZoom > 1.02) {
+                // ── One finger while zoomed in → pan ──
+                if (touches.length === 1 && isZoomedIn()) {
                     isPanning = true;
                     isPinching = false;
-                    swipeActive = false;
                     lastTouchX = touches[0].clientX;
                     lastTouchY = touches[0].clientY;
                     lastPanX = currentPanX;
@@ -934,20 +978,12 @@
                     return;
                 }
 
-                // One finger when zoomed out → let turn.js handle it (do NOT prevent default)
-                if (touches.length === 1 && currentZoom <= 1.02) {
-                    isPanning = false;
-                    isPinching = false;
-                    swipeActive = true;
-                    swipeHandledByTurn = false;
-                    swipeStartX = touches[0].clientX;
-                    swipeStartY = touches[0].clientY;
-                    // DO NOT prevent default – let turn.js receive the event for native drag-to-turn
-                    return;
-                }
+                // ── One finger while zoomed out → DO NOTHING, let turn.js handle it ──
+                // No preventDefault(), no state changes. turn.js receives the event natively.
             }, { passive: false });
 
             bookArea.addEventListener("touchmove", function(e) {
+                if (!bookReady) return;
                 const touches = e.touches;
 
                 // Pinch zoom
@@ -968,7 +1004,7 @@
                 }
 
                 // Pan when zoomed in
-                if (isPanning && touches.length === 1 && currentZoom > 1.02) {
+                if (isPanning && touches.length === 1 && isZoomedIn()) {
                     const dx = touches[0].clientX - lastTouchX;
                     const dy = touches[0].clientY - lastTouchY;
                     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
@@ -981,44 +1017,23 @@
                     return;
                 }
 
-                // Swipe tracking when zoomed out – let turn.js handle it
-                if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
-                    const dx = touches[0].clientX - swipeStartX;
-                    const dy = touches[0].clientY - swipeStartY;
-                    // If significant horizontal movement, it might be a swipe turn.js missed
-                    if (Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-                        swipeHandledByTurn = true;
-                        // Still don't prevent default – turn.js may still be handling it
-                    }
-                    return;
-                }
+                // Zoomed out → let turn.js handle it, don't interfere
             }, { passive: false });
 
             bookArea.addEventListener("touchend", function(e) {
-                // Fallback swipe handling for when turn.js doesn't catch the swipe
-                if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning && bookReady) {
-                    const changed = e.changedTouches[0];
-                    if (changed && swipeStartX !== 0) {
-                        const deltaX = changed.clientX - swipeStartX;
-                        const deltaY = changed.clientY - swipeStartY;
-                        // Only trigger if it's a clear horizontal swipe and turn.js didn't handle it
-                        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && !swipeHandledByTurn) {
-                            if (deltaX > 0) {
-                                $flipbook.turn("previous");
-                            } else {
-                                $flipbook.turn("next");
-                            }
-                        }
-                    }
-                }
                 isPinching = false;
                 isPanning = false;
-                swipeActive = false;
-                swipeHandledByTurn = false;
+                pinchStartDistance = 0;
+                // No fallback swipe logic – turn.js handles page turning natively
+            });
+
+            bookArea.addEventListener("touchcancel", function(e) {
+                isPinching = false;
+                isPanning = false;
                 pinchStartDistance = 0;
             });
 
-            // ------- MOUSE EVENTS -------
+            // ─────────────── MOUSE EVENTS ───────────────
             bookArea.addEventListener("wheel", function(e) {
                 if (!bookReady) return;
                 e.preventDefault();
@@ -1042,10 +1057,10 @@
 
             bookArea.addEventListener("mousedown", function(e) {
                 if (!bookReady) return;
-                if (e.button === 2) return; // Right-click
+                if (e.button === 2) return;
 
-                // Only intercept for pan when zoomed in
-                if (currentZoom > 1.02) {
+                // Only intercept mousedown when zoomed in (for panning)
+                if (isZoomedIn()) {
                     mouseIsDown = true;
                     mouseStartX = e.clientX;
                     mouseStartY = e.clientY;
@@ -1053,12 +1068,13 @@
                     mousePanX = currentPanX;
                     mousePanY = currentPanY;
                     e.preventDefault();
+                    e.stopPropagation();
                     return;
                 }
 
-                // When zoomed out, let turn.js handle the mousedown for drag-to-turn
-                // Don't set mouseIsDown, don't prevent default
+                // Zoomed out → let turn.js handle mousedown for drag‑to‑turn
                 mouseIsDown = false;
+                // Do NOT preventDefault() – turn.js needs this event
             });
 
             window.addEventListener("mousemove", function(e) {
@@ -1068,7 +1084,7 @@
                 if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                     mouseMoved = true;
                 }
-                if (mouseMoved && currentZoom > 1.02) {
+                if (mouseMoved && isZoomedIn()) {
                     currentPanX = mousePanX + dx;
                     currentPanY = mousePanY + dy;
                     clampPan();
@@ -1079,26 +1095,27 @@
             window.addEventListener("mouseup", function(e) {
                 if (!mouseIsDown || !bookReady) return;
                 mouseIsDown = false;
-                // When zoomed out, turn.js handles clicks. When zoomed in and no drag occurred,
-                // we do nothing special (user can click to zoom out via double-click)
                 mouseMoved = false;
             });
 
+            // ─────────────── OTHER INTERACTIONS ───────────────
             bookArea.addEventListener("contextmenu", function(e) { e.preventDefault(); });
-            bookArea.addEventListener("dblclick", function() { if (bookReady) resetZoomAndPan(); });
+            bookArea.addEventListener("dblclick", function() {
+                if (bookReady && isZoomedIn()) resetZoomAndPan();
+            });
 
-            // --- Button handlers ---
+            // ─────────────── BUTTONS ───────────────
             document.getElementById("zoomInBtn").addEventListener("click", function() {
                 if (!bookReady) return;
                 currentZoom = Math.min(4.0, currentZoom + 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0;
+                if (!isZoomedIn()) { currentPanX = 0;
                     currentPanY = 0; }
                 applyTransform();
             });
             document.getElementById("zoomOutBtn").addEventListener("click", function() {
                 if (!bookReady) return;
                 currentZoom = Math.max(1.0, currentZoom - 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0;
+                if (!isZoomedIn()) { currentPanX = 0;
                     currentPanY = 0; }
                 applyTransform();
             });
@@ -1108,7 +1125,6 @@
             document.getElementById("nextBtn").addEventListener("click", function() {
                 if (bookReady) $flipbook.turn("next");
             });
-
             document.getElementById("downloadPDF").addEventListener("click", function() {
                 const link = document.createElement("a");
                 link.href = "Slock Catalog.pdf";
@@ -1117,14 +1133,13 @@
                 link.click();
                 document.body.removeChild(link);
             });
-
             document.addEventListener("keydown", function(e) {
                 if (!bookReady) return;
                 if (e.key === "ArrowLeft") $flipbook.turn("previous");
                 if (e.key === "ArrowRight") $flipbook.turn("next");
             });
 
-            // --- Resize handling ---
+            // ─────────────── RESIZE ───────────────
             let resizeDebounce = null;
             let lastKnownDisplayMode = getDisplayMode();
 
@@ -1133,12 +1148,10 @@
                 resizeDebounce = setTimeout(function() {
                     const newDisplayMode = getDisplayMode();
                     if (newDisplayMode !== lastKnownDisplayMode) {
-                        // Display mode changed – reinitialize
                         const currentPage = bookReady ? $flipbook.turn("page") : 1;
                         lastKnownDisplayMode = newDisplayMode;
                         initFlipbook(newDisplayMode, currentPage);
                     } else if (bookReady) {
-                        // Same mode – just update size
                         const newSize = getOptimalBookSize(newDisplayMode);
                         $flipbook.turn("size", newSize.width, newSize.height);
                         resetZoomAndPan();
@@ -1146,7 +1159,7 @@
                 }, 300);
             });
 
-            // --- Kickstart ---
+            // ─────────────── KICKSTART ───────────────
             lastKnownDisplayMode = getDisplayMode();
             buildAllPageElements();
             startInitialLoading();
@@ -1160,7 +1173,7 @@
                 }
             }, 6000);
 
-            // Show zoom hint briefly on first interaction
+            // Show zoom hint briefly
             setTimeout(function() {
                 zoomHint.classList.add("visible");
                 setTimeout(() => zoomHint.classList.remove("visible"), 4000);
