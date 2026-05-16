@@ -391,12 +391,36 @@
             const PRELOAD_RADIUS = 18;
             const MAX_CONCURRENT_PRELOADS = 12;
 
+            // ---------- RESPONSIVE PAGE 2 LOGIC ----------
+            function getPageNumbersForMode(mode) {
+                const all = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1);
+                if (mode === 'double') {
+                    return all;                     // all 36 pages, including page 2
+                } else {
+                    // single mode: hide page 2
+                    return all.filter(p => p !== 2);
+                }
+            }
+
+            function mapOriginalToTurnPage(originalPage, mode) {
+                const pages = getPageNumbersForMode(mode);
+                const idx = pages.indexOf(originalPage);
+                return idx !== -1 ? idx + 1 : 1;   // 1‑based turn index
+            }
+
+            function mapTurnToOriginalPage(turnPage, mode) {
+                const pages = getPageNumbersForMode(mode);
+                return pages[turnPage - 1] || 1;
+            }
+
             let pagesLoadedStatus = new Array(TOTAL_PAGES + 1).fill(false);
-            let pageElements = [];
+            let pageElements = [];                  // indexed by original page number (1..36)
             let bookReady = false;
             let activePreloads = 0;
             let preloadQueue = [];
             let currentDisplayMode = 'single';
+            let totalDisplayedPages = TOTAL_PAGES; // updated on init
+            let currentPageMapping = [];           // maps turn page index -> original page
             let lastFlipSoundTime = 0;
 
             const $flipbook = $("#flipbook");
@@ -556,6 +580,7 @@
             let currentPreloadCenter = 1;
             let preloadScheduled = false;
             function scheduleSmartPreload(centerPage) {
+                // centerPage is the original page number (1..36)
                 currentPreloadCenter = Math.min(TOTAL_PAGES, Math.max(1, centerPage));
                 if (preloadScheduled) return;
                 preloadScheduled = true;
@@ -620,28 +645,43 @@
                 }
             }
 
-            function updateCounter(page) {
+            function updateCounter(turnPageIndex) {
                 const counterEl = document.getElementById("pageCounter");
                 if (currentDisplayMode === 'double') {
-                    if (page <= 1) counterEl.innerText = `1 / ${TOTAL_PAGES}`;
-                    else if (page >= TOTAL_PAGES) counterEl.innerText = `${TOTAL_PAGES} / ${TOTAL_PAGES}`;
-                    else counterEl.innerText = `${page}–${Math.min(page+1, TOTAL_PAGES)} / ${TOTAL_PAGES}`;
+                    // In double, turnPageIndex is the left page; all pages exist so mapping is identity
+                    if (turnPageIndex <= 1) counterEl.innerText = `1 / ${TOTAL_PAGES}`;
+                    else if (turnPageIndex >= TOTAL_PAGES) counterEl.innerText = `${TOTAL_PAGES} / ${TOTAL_PAGES}`;
+                    else counterEl.innerText = `${turnPageIndex}–${Math.min(turnPageIndex+1, TOTAL_PAGES)} / ${TOTAL_PAGES}`;
                 } else {
-                    counterEl.innerText = `${page} / ${TOTAL_PAGES}`;
+                    // Single mode – show current page out of displayed total
+                    counterEl.innerText = `${turnPageIndex} / ${totalDisplayedPages}`;
                 }
-                if (bookReady) scheduleSmartPreload(page);
             }
 
-            function initFlipbook(displayMode, targetPage) {
+            function initFlipbook(displayMode, targetOriginalPage) {
                 if (bookReady) { try { $flipbook.turn("destroy"); } catch(e) {} bookReady = false; }
-                if (pageElements.filter(Boolean).length < TOTAL_PAGES) buildAllPageElements();
-                else {
-                    $flipbook.empty();
-                    for (let i = 1; i <= TOTAL_PAGES; i++) {
-                        if (pageElements[i] && pageElements[i].$page) $flipbook.append(pageElements[i].$page);
-                        else $flipbook.append(createPageElement(i));
+
+                const pageNumbers = getPageNumbersForMode(displayMode);
+                totalDisplayedPages = pageNumbers.length;
+                currentPageMapping = pageNumbers;   // turn index -> original
+
+                // Build DOM with only the required pages
+                $flipbook.empty();
+                for (let origPage of pageNumbers) {
+                    if (pageElements[origPage] && pageElements[origPage].$page) {
+                        $flipbook.append(pageElements[origPage].$page);
+                    } else {
+                        const newPage = createPageElement(origPage);
+                        $flipbook.append(newPage);
                     }
                 }
+
+                // Determine turn.js target page index from the desired original page
+                let targetTurnPage = mapOriginalToTurnPage(targetOriginalPage || 1, displayMode);
+                // Ensure it's within range
+                if (targetTurnPage > totalDisplayedPages) targetTurnPage = totalDisplayedPages;
+                if (targetTurnPage < 1) targetTurnPage = 1;
+
                 currentDisplayMode = displayMode;
                 const { width, height } = getOptimalBookSize(displayMode);
                 $flipbook.removeClass('display-single display-double').addClass('display-' + displayMode);
@@ -654,22 +694,25 @@
                     gradients: true,
                     elevation: 50,
                     duration: 420,
-                    page: targetPage || 1,
-                    turnCorners: "",   // Disable native corner drag – we provide full‑page drag
+                    page: targetTurnPage,
+                    turnCorners: "",
                     when: {
                         turning: function(e, page) {
                             playFlipSound();
-                            if (page >= 1 && page <= TOTAL_PAGES) scheduleSmartPreload(page);
+                            const original = mapTurnToOriginalPage(page, displayMode);
+                            if (original >= 1 && original <= TOTAL_PAGES) scheduleSmartPreload(original);
                         },
                         turned: function(e, page) {
                             updateCounter(page);
-                            scheduleSmartPreload(page);
+                            const original = mapTurnToOriginalPage(page, displayMode);
+                            scheduleSmartPreload(original);
                         },
                         missing: function(e, pages) {
                             for (let p of pages) {
-                                if (p >= 1 && p <= TOTAL_PAGES && !pagesLoadedStatus[p]) {
-                                    const elem = pageElements[p];
-                                    if (elem && !elem.loaded) loadImageForPage(p, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
+                                const original = mapTurnToOriginalPage(p, displayMode);
+                                if (original >= 1 && original <= TOTAL_PAGES && !pagesLoadedStatus[original]) {
+                                    const elem = pageElements[original];
+                                    if (elem && !elem.loaded) loadImageForPage(original, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
                                 }
                             }
                         }
@@ -677,19 +720,22 @@
                 });
 
                 bookReady = true;
-                const currentPage = $flipbook.turn("page") || targetPage || 1;
-                updateCounter(currentPage);
+                const currentTurnPage = $flipbook.turn("page") || targetTurnPage;
+                updateCounter(currentTurnPage);
                 resetZoomAndPan();
-                scheduleSmartPreload(currentPage);
+                const currentOriginal = mapTurnToOriginalPage(currentTurnPage, displayMode);
+                scheduleSmartPreload(currentOriginal);
 
                 if (torxLoader && torxLoader.style.display !== "none") {
                     torxLoader.style.opacity = "0";
                     setTimeout(() => { if (torxLoader) torxLoader.style.display = "none"; }, 350);
                 }
-                for (let i = 1; i <= TOTAL_PAGES; i++) {
-                    if (!pagesLoadedStatus[i]) {
-                        const elem = pageElements[i];
-                        if (elem && !elem.loaded) loadImageForPage(i, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
+
+                // Start loading any still‑missing pages (for the visible set)
+                for (let origPage of pageNumbers) {
+                    if (!pagesLoadedStatus[origPage]) {
+                        const elem = pageElements[origPage];
+                        if (elem && !elem.loaded) loadImageForPage(origPage, elem.imgEl, elem.placeEl).finally(() => { if (elem) elem.loaded = true; });
                     }
                 }
             }
@@ -755,7 +801,7 @@
             // ─────────────── CUSTOM DRAG‑TO‑TURN (touch & mouse) ───────────────
             let dragStartX = 0, dragStartY = 0;
             let dragActive = false;
-            let dragThreshold = 30;   // minimum horizontal distance to trigger a turn
+            let dragThreshold = 30;
 
             function startDrag(clientX, clientY) {
                 if (!bookReady || isZoomedIn()) return false;
@@ -767,7 +813,6 @@
 
             function updateDrag(clientX, clientY) {
                 if (!dragActive || !bookReady || isZoomedIn()) return;
-                // We don't need continuous updates, just record final position on end.
             }
 
             function endDrag(clientX, clientY) {
@@ -788,7 +833,6 @@
                 if (!bookReady) return;
                 const touches = e.touches;
 
-                // Double‑tap reset when zoomed in
                 if (isZoomedIn() && touches.length === 1 && !isPinching && !isPanning) {
                     const now = Date.now();
                     const tx = touches[0].clientX, ty = touches[0].clientY;
@@ -805,7 +849,6 @@
                     }
                 }
 
-                // Pinch zoom
                 if (touches.length === 2) {
                     isPinching = true; isPanning = false;
                     pinchStartDistance = getDistance(touches);
@@ -814,7 +857,6 @@
                     return;
                 }
 
-                // Pan while zoomed in
                 if (touches.length === 1 && isZoomedIn()) {
                     isPanning = true; isPinching = false;
                     lastTouchX = touches[0].clientX; lastTouchY = touches[0].clientY;
@@ -823,11 +865,8 @@
                     return;
                 }
 
-                // Zoomed out → try to start a drag‑to‑turn
                 if (touches.length === 1 && !isZoomedIn()) {
-                    if (startDrag(touches[0].clientX, touches[0].clientY)) {
-                        // Don't preventDefault – allow turn.js to also receive for compatibility (though we disabled corner drag)
-                    }
+                    startDrag(touches[0].clientX, touches[0].clientY);
                 }
             }, { passive: false });
 
@@ -912,11 +951,8 @@
                     return;
                 }
 
-                // Zoomed out → start drag‑to‑turn
                 if (!isZoomedIn() && e.button === 0) {
-                    if (startDrag(e.clientX, e.clientY)) {
-                        // Let the event propagate if needed, but we'll manage the turn ourselves
-                    }
+                    startDrag(e.clientX, e.clientY);
                 }
             });
 
@@ -945,7 +981,6 @@
                 }
             });
 
-            // Disable right‑click context menu
             bookArea.addEventListener("contextmenu", e => e.preventDefault());
             bookArea.addEventListener("dblclick", function() { if (bookReady && isZoomedIn()) resetZoomAndPan(); });
 
@@ -983,9 +1018,14 @@
                 resizeDebounce = setTimeout(() => {
                     const newMode = getDisplayMode();
                     if (newMode !== lastKnownDisplayMode) {
-                        const currentPage = bookReady ? $flipbook.turn("page") : 1;
+                        // Save current original page before rebuilding
+                        let currentOriginalPage = 1;
+                        if (bookReady) {
+                            const turnPageIndex = $flipbook.turn("page");
+                            currentOriginalPage = mapTurnToOriginalPage(turnPageIndex, lastKnownDisplayMode);
+                        }
                         lastKnownDisplayMode = newMode;
-                        initFlipbook(newMode, currentPage);
+                        initFlipbook(newMode, currentOriginalPage);
                     } else if (bookReady) {
                         const newSize = getOptimalBookSize(newMode);
                         $flipbook.turn("size", newSize.width, newSize.height);
@@ -996,12 +1036,16 @@
 
             // ─────────────── STARTUP ───────────────
             lastKnownDisplayMode = getDisplayMode();
-            buildAllPageElements();
+            buildAllPageElements();       // pre‑build all 36 page elements (cached)
             startInitialLoading();
+
+            // Kick off the book in the correct mode
+            setTimeout(() => {
+                if (!bookReady) initFlipbook(lastKnownDisplayMode, 1);
+            }, 50);
 
             setTimeout(() => {
                 if (torxLoader && torxLoader.style.display !== "none") {
-                    if (!bookReady) initFlipbookEarly();
                     torxLoader.style.opacity = "0";
                     setTimeout(() => { if (torxLoader) torxLoader.style.display = "none"; }, 400);
                 }
