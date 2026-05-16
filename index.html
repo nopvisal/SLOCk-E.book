@@ -397,7 +397,7 @@
             let bookReady = false;
             let activePreloads = 0;
             let preloadQueue = [];
-            let currentDisplayMode = 'single';
+            let currentDisplayMode = 'single'; // 'single' | 'double'
             let lastFlipSoundTime = 0;
 
             const $flipbook = $("#flipbook");
@@ -413,6 +413,7 @@
 
             function playFlipSound() {
                 if (!bookReady) return;
+                // Debounce: only play once every 280ms to avoid overlapping during rapid drags
                 const now = Date.now();
                 if (now - lastFlipSoundTime < 280) return;
                 lastFlipSoundTime = now;
@@ -427,6 +428,7 @@
 
                     const ctxNow = audioCtx.currentTime;
 
+                    // 1. Low thump – the body of the book landing / shifting
                     const thumpDur = 0.09;
                     const thumpBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * thumpDur, audioCtx.sampleRate);
                     const thumpData = thumpBuffer.getChannelData(0);
@@ -447,6 +449,7 @@
                     thumpSource.start(ctxNow);
                     thumpSource.stop(ctxNow + thumpDur);
 
+                    // 2. Main sliding swoosh – mid‑range paper rustle
                     const slideDur = 0.38;
                     const slideBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * slideDur, audioCtx.sampleRate);
                     const slideData = slideBuffer.getChannelData(0);
@@ -470,6 +473,7 @@
                     slideSource.start(ctxNow);
                     slideSource.stop(ctxNow + slideDur);
 
+                    // 3. Subtle high‑frequency swipe – loose pages brushing
                     const swipeDur = 0.22;
                     const swipeBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * swipeDur, audioCtx.sampleRate);
                     const swipeData = swipeBuffer.getChannelData(0);
@@ -490,9 +494,13 @@
                     swipeGain.connect(audioCtx.destination);
                     swipeSource.start(ctxNow + 0.04);
                     swipeSource.stop(ctxNow + 0.04 + swipeDur);
-                } catch (e) {}
+
+                } catch (e) {
+                    // Fail silently
+                }
             }
 
+            // Unlock AudioContext on first user interaction
             function unlockAudio() {
                 if (!audioCtx) {
                     audioCtx = new(window.AudioContext || window.webkitAudioContext)();
@@ -504,10 +512,12 @@
             document.body.addEventListener("touchstart", unlockAudio, { once: true });
             document.body.addEventListener("mousedown", unlockAudio, { once: true });
 
+            // --- Display mode detection ---
             function getDisplayMode() {
                 return window.innerWidth >= DOUBLE_DISPLAY_THRESHOLD ? 'double' : 'single';
             }
 
+            // --- Progress ---
             function updateLoadProgress() {
                 const loadedCount = pagesLoadedStatus.filter(v => v === true).length;
                 const percent = Math.floor((loadedCount / TOTAL_PAGES) * 100);
@@ -519,6 +529,7 @@
                 }
             }
 
+            // --- Fast image loader ---
             function loadImageForPage(pageNum, imgElement, placeholderDiv) {
                 return new Promise((resolve) => {
                     if (pagesLoadedStatus[pageNum]) {
@@ -559,6 +570,7 @@
                 });
             }
 
+            // --- Build page DOM ---
             function createPageElement(pageNum) {
                 const $page = $("<div class='page'></div>");
                 const placeholderDiv = document.createElement("div");
@@ -575,6 +587,7 @@
             }
 
             function buildAllPageElements() {
+                // Clear existing references
                 pageElements = new Array(TOTAL_PAGES + 1).fill(null);
                 $flipbook.empty();
                 for (let i = 1; i <= TOTAL_PAGES; i++) {
@@ -582,6 +595,7 @@
                 }
             }
 
+            // --- Background preloader ---
             let currentPreloadCenter = 1;
             let preloadScheduled = false;
 
@@ -650,14 +664,15 @@
                 scheduleSmartPreload(1);
             }
 
-            // --- Updated book sizing: nearly full screen with minimal margin ---
+            // --- Book sizing ---
             function getOptimalBookSize(displayMode) {
                 const areaRect = bookArea.getBoundingClientRect();
-                const maxWidth = areaRect.width - 8;   // tiny margin to avoid edge clipping
-                const maxHeight = areaRect.height - 8;
+                const maxWidth = areaRect.width * 0.92;
+                const maxHeight = areaRect.height * 0.92;
 
                 if (displayMode === 'double') {
-                    const ratio = 1.414; // two portrait pages side by side
+                    // Two portrait pages side by side → landscape aspect ~1.414
+                    const ratio = 1.414;
                     let width = maxWidth;
                     let height = width / ratio;
                     if (height > maxHeight) {
@@ -666,7 +681,8 @@
                     }
                     return { width: Math.floor(width), height: Math.floor(height) };
                 } else {
-                    const ratio = 0.707; // single portrait page
+                    // Single portrait page → aspect ~0.707
+                    const ratio = 0.707;
                     let width = maxWidth;
                     let height = width / ratio;
                     if (height > maxHeight) {
@@ -677,6 +693,7 @@
                 }
             }
 
+            // --- Page counter ---
             function updateCounter(page) {
                 const displayMode = currentDisplayMode;
                 const counterEl = document.getElementById("pageCounter");
@@ -697,15 +714,18 @@
                 if (bookReady) scheduleSmartPreload(page);
             }
 
+            // --- Flipbook initialization ---
             function initFlipbook(displayMode, targetPage) {
                 if (bookReady) {
                     try { $flipbook.turn("destroy"); } catch (e) {}
                     bookReady = false;
                 }
 
+                // Rebuild page DOM if needed
                 if (pageElements.filter(Boolean).length < TOTAL_PAGES) {
                     buildAllPageElements();
                 } else {
+                    // Ensure all page elements are appended
                     $flipbook.empty();
                     for (let i = 1; i <= TOTAL_PAGES; i++) {
                         if (pageElements[i] && pageElements[i].$page) {
@@ -729,7 +749,7 @@
                     elevation: 50,
                     duration: 420,
                     page: targetPage || 1,
-                    turnCorners: "tl,tr,bl,br",  // all four corners active for the curl effect
+                    turnCorners: "tl,tr,bl,br",
                     when: {
                         turning: function(e, page) {
                             playFlipSound();
@@ -740,6 +760,7 @@
                             scheduleSmartPreload(page);
                         },
                         missing: function(e, pages) {
+                            // Handle any missing pages gracefully
                             for (let i = 0; i < pages.length; i++) {
                                 const p = pages[i];
                                 if (p >= 1 && p <= TOTAL_PAGES && !pagesLoadedStatus[p]) {
@@ -761,11 +782,13 @@
                 resetZoomAndPan();
                 scheduleSmartPreload(currentPage);
 
+                // Hide loader
                 if (torxLoader && torxLoader.style.display !== "none") {
                     torxLoader.style.opacity = "0";
                     setTimeout(() => { if (torxLoader) torxLoader.style.display = "none"; }, 350);
                 }
 
+                // Kick off loading for any unloaded pages
                 for (let i = 1; i <= TOTAL_PAGES; i++) {
                     if (!pagesLoadedStatus[i]) {
                         const elem = pageElements[i];
@@ -803,7 +826,8 @@
                 tapTimeout = null;
             let swipeStartX = 0,
                 swipeStartY = 0,
-                swipeActive = false;
+                swipeActive = false,
+                swipeHandledByTurn = false;
 
             let mouseIsDown = false,
                 mouseStartX = 0,
@@ -860,11 +884,11 @@
                 currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
             }
 
-            // ------- TOUCH EVENTS (updated: prevent scrolling so turn.js gets a clean drag) -------
+            // ------- TOUCH EVENTS -------
             bookArea.addEventListener("touchstart", function(e) {
                 const touches = e.touches;
 
-                // Double-tap detection
+                // Double-tap detection for zoom reset (works regardless of zoom level)
                 if (touches.length === 1 && !isPinching && !isPanning) {
                     const now = Date.now();
                     const tx = touches[0].clientX;
@@ -884,7 +908,7 @@
                     }
                 }
 
-                // Two-finger pinch
+                // Two-finger pinch → zoom (always intercept)
                 if (touches.length === 2) {
                     isPinching = true;
                     isPanning = false;
@@ -897,7 +921,7 @@
                     return;
                 }
 
-                // One finger when zoomed in -> pan
+                // One finger when zoomed in → pan
                 if (touches.length === 1 && currentZoom > 1.02) {
                     isPanning = true;
                     isPinching = false;
@@ -910,14 +934,15 @@
                     return;
                 }
 
-                // One finger when zoomed out -> let turn.js drag, but prevent scrolling
+                // One finger when zoomed out → let turn.js handle it (do NOT prevent default)
                 if (touches.length === 1 && currentZoom <= 1.02) {
                     isPanning = false;
                     isPinching = false;
                     swipeActive = true;
+                    swipeHandledByTurn = false;
                     swipeStartX = touches[0].clientX;
                     swipeStartY = touches[0].clientY;
-                    e.preventDefault(); // <-- critical: stops browser scroll so turn.js can capture the drag
+                    // DO NOT prevent default – let turn.js receive the event for native drag-to-turn
                     return;
                 }
             }, { passive: false });
@@ -925,6 +950,7 @@
             bookArea.addEventListener("touchmove", function(e) {
                 const touches = e.touches;
 
+                // Pinch zoom
                 if (isPinching && touches.length === 2) {
                     const newDist = getDistance(touches);
                     if (pinchStartDistance > 0) {
@@ -941,6 +967,7 @@
                     return;
                 }
 
+                // Pan when zoomed in
                 if (isPanning && touches.length === 1 && currentZoom > 1.02) {
                     const dx = touches[0].clientX - lastTouchX;
                     const dy = touches[0].clientY - lastTouchY;
@@ -954,21 +981,44 @@
                     return;
                 }
 
+                // Swipe tracking when zoomed out – let turn.js handle it
                 if (swipeActive && touches.length === 1 && currentZoom <= 1.02) {
-                    // Let turn.js handle the move, but we still prevent default to avoid scrolling
-                    e.preventDefault();
+                    const dx = touches[0].clientX - swipeStartX;
+                    const dy = touches[0].clientY - swipeStartY;
+                    // If significant horizontal movement, it might be a swipe turn.js missed
+                    if (Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                        swipeHandledByTurn = true;
+                        // Still don't prevent default – turn.js may still be handling it
+                    }
                     return;
                 }
             }, { passive: false });
 
             bookArea.addEventListener("touchend", function(e) {
+                // Fallback swipe handling for when turn.js doesn't catch the swipe
+                if (swipeActive && currentZoom <= 1.02 && !isPinching && !isPanning && bookReady) {
+                    const changed = e.changedTouches[0];
+                    if (changed && swipeStartX !== 0) {
+                        const deltaX = changed.clientX - swipeStartX;
+                        const deltaY = changed.clientY - swipeStartY;
+                        // Only trigger if it's a clear horizontal swipe and turn.js didn't handle it
+                        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && !swipeHandledByTurn) {
+                            if (deltaX > 0) {
+                                $flipbook.turn("previous");
+                            } else {
+                                $flipbook.turn("next");
+                            }
+                        }
+                    }
+                }
                 isPinching = false;
                 isPanning = false;
                 swipeActive = false;
+                swipeHandledByTurn = false;
                 pinchStartDistance = 0;
             });
 
-            // ------- MOUSE EVENTS (updated: prevent default on mousedown for seamless drag) -------
+            // ------- MOUSE EVENTS -------
             bookArea.addEventListener("wheel", function(e) {
                 if (!bookReady) return;
                 e.preventDefault();
@@ -992,9 +1042,9 @@
 
             bookArea.addEventListener("mousedown", function(e) {
                 if (!bookReady) return;
-                if (e.button === 2) return;
+                if (e.button === 2) return; // Right-click
 
-                // When zoomed in, we manually pan
+                // Only intercept for pan when zoomed in
                 if (currentZoom > 1.02) {
                     mouseIsDown = true;
                     mouseStartX = e.clientX;
@@ -1006,10 +1056,9 @@
                     return;
                 }
 
-                // When zoomed out, turn.js will handle the drag, but we block default actions
-                // (like text selection) so the drag feels smooth and uninterrupted.
+                // When zoomed out, let turn.js handle the mousedown for drag-to-turn
+                // Don't set mouseIsDown, don't prevent default
                 mouseIsDown = false;
-                e.preventDefault(); // <-- key: enables whole-page dragging without interference
             });
 
             window.addEventListener("mousemove", function(e) {
@@ -1030,6 +1079,8 @@
             window.addEventListener("mouseup", function(e) {
                 if (!mouseIsDown || !bookReady) return;
                 mouseIsDown = false;
+                // When zoomed out, turn.js handles clicks. When zoomed in and no drag occurred,
+                // we do nothing special (user can click to zoom out via double-click)
                 mouseMoved = false;
             });
 
@@ -1040,13 +1091,15 @@
             document.getElementById("zoomInBtn").addEventListener("click", function() {
                 if (!bookReady) return;
                 currentZoom = Math.min(4.0, currentZoom + 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+                if (currentZoom <= 1.02) { currentPanX = 0;
+                    currentPanY = 0; }
                 applyTransform();
             });
             document.getElementById("zoomOutBtn").addEventListener("click", function() {
                 if (!bookReady) return;
                 currentZoom = Math.max(1.0, currentZoom - 0.2);
-                if (currentZoom <= 1.02) { currentPanX = 0; currentPanY = 0; }
+                if (currentZoom <= 1.02) { currentPanX = 0;
+                    currentPanY = 0; }
                 applyTransform();
             });
             document.getElementById("prevBtn").addEventListener("click", function() {
@@ -1080,10 +1133,12 @@
                 resizeDebounce = setTimeout(function() {
                     const newDisplayMode = getDisplayMode();
                     if (newDisplayMode !== lastKnownDisplayMode) {
+                        // Display mode changed – reinitialize
                         const currentPage = bookReady ? $flipbook.turn("page") : 1;
                         lastKnownDisplayMode = newDisplayMode;
                         initFlipbook(newDisplayMode, currentPage);
                     } else if (bookReady) {
+                        // Same mode – just update size
                         const newSize = getOptimalBookSize(newDisplayMode);
                         $flipbook.turn("size", newSize.width, newSize.height);
                         resetZoomAndPan();
@@ -1096,6 +1151,7 @@
             buildAllPageElements();
             startInitialLoading();
 
+            // Safety fallback (6s)
             setTimeout(function() {
                 if (torxLoader && torxLoader.style.display !== "none") {
                     if (!bookReady) initFlipbookEarly();
@@ -1104,6 +1160,7 @@
                 }
             }, 6000);
 
+            // Show zoom hint briefly on first interaction
             setTimeout(function() {
                 zoomHint.classList.add("visible");
                 setTimeout(() => zoomHint.classList.remove("visible"), 4000);
